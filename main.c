@@ -4,16 +4,21 @@
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
 #include <math.h>
+#include <signal.h>
 
 #include "LinkedValuesList.h"
 #include "tcp.h"
 
 #define VALUES_PER_TURN (360*64)
 #define NB_CABINS (16)
+
+int on = 1;
 
 void setDTR(int desc, int dtrEnable)
 {
@@ -183,7 +188,7 @@ int resetScan(__uint8_t byte)
     return byte & (__uint8_t)0x80;
 }
 
-float* paquetExtractor(float startAngle, float angleDiff, __uint8_t* data)
+float* paquetExtractor(__uint16_t startAngle_q8, __uint16_t angleDiff_q8, __uint8_t* data)
 {
     float* res = (float*) malloc(sizeof(float)*NB_CABINS*4);
 
@@ -199,119 +204,141 @@ float* paquetExtractor(float startAngle, float angleDiff, __uint8_t* data)
         dist2_q2 = ((__uint16_t)(data[(i*5)+2] & (__uint8_t)0xFC) >> 2) | ((__uint16_t)data[(i*5)+3] << 6);
         dAngle2_q3 = ((data[(i*5)+2] & (__uint8_t)0x03) << 4) | ((data[(i*5)+4] & (__uint8_t)0xF0) >> 4);
 
-        res[(i*4)] = ((float)dist1_q2) * 0.25f;
-        res[(i*4)+1] = (startAngle + (angleDiff * (i*2)) - (((float)dAngle1_q3) * 0.125f)) / 64.f ;
-        res[(i*4)+2] = ((float)dist2_q2) * 0.25f;
-        res[(i*4)+3] = (startAngle + (angleDiff * ((i*2)+1)) - (((float)dAngle2_q3) * 0.125f)) / 64.f;
+
+
+        res[(i*4)] = (float)(dist1_q2);
+
+        res[(i*4)+1] = (float)(startAngle_q8 + (angleDiff_q8 * (i*2)) )    / (1 << 8);
+        //  - ((dAngle1_q3 & (__uint8_t)0x1F)) << 5) / (1 << 8) * ((dAngle1_q3 & (__uint8_t)0x20) == 0 ? 1.f : -1.f);
+
+        res[(i*4)+2] = (float)(dist2_q2);
+
+        res[(i*4)+3] = (float)(startAngle_q8 + (angleDiff_q8* ((i*2)+1))  ) / (1 << 8) ;
+        // - ((dAngle2_q3 & (__uint8_t)0x1F)) << 5) / (1 << 8) * ((dAngle2_q3 & (__uint8_t)0x20) == 0 ? 1.f : -1.f);
     }
+
 
     return res;
 }
 
+void sig_handler(int signo)
+{
+    if (signo == SIGINT)
+        on = 0;
+}
+
 int main(int argc, char** argv) {
 
-    if(argc != 2)
-    {
+    if (argc != 2) {
         printf("BAD");
         return -1;
     }
 
-    int fileDesc = open (argv[1], O_RDWR);
-    if (fileDesc < 0)
-    {
-        printf("error %d opening %s: %s", errno, argv[1], strerror (errno));
+    signal(SIGINT, sig_handler);
+
+    int fileDesc = open(argv[1], O_RDWR);
+    if (fileDesc < 0) {
+        printf("error %d opening %s: %s", errno, argv[1], strerror(errno));
         return -1;
     }
 
-    set_interface_attribs (fileDesc, B115200, 0);		// set speed to 115,200 bps, 8n1 (no parity)
-    set_blocking (fileDesc, 1);
+    set_interface_attribs(fileDesc, B115200, 0);        // set speed to 115,200 bps, 8n1 (no parity)
+    set_blocking(fileDesc, 1);
     setDTR(fileDesc, 0);
-
-    initLidar(fileDesc);
-
-    int c=0;
-    unsigned long t = time();
-
-    __uint8_t * data = (__uint8_t*) malloc(sizeof(__uint8_t)*84);
-    __uint8_t * lastData = (__uint8_t*) malloc(sizeof(__uint8_t)*84);
-    __uint8_t * temp;
-
-    char init = 0;
-    __uint8_t checksum;
-
-    __uint16_t next_angle_q6;
-    __uint16_t angle_q6;
-    float next_angle;
-    float angle;
-
-    int cursor = 0;
-    LinkedValuesList * turn = NULL;
-    float lastAngle = -1.f;
 
     int sock = 0;
 
-    while (c < 10000)
+    while (on)
     {
-        checksum = findPacketStart(fileDesc);
+        int c = 0;
+        unsigned long t = time();
 
-        read(fileDesc, data, 78);
+        __uint8_t *data = (__uint8_t *) malloc(sizeof(__uint8_t) * 84);
+        __uint8_t *lastData = (__uint8_t *) malloc(sizeof(__uint8_t) * 84);
+        __uint8_t *temp;
 
-        if(resetScan(data[1]) || cursor >= VALUES_PER_TURN*2)
-        {
-            cursor = 0;
-            init = 0;
-        }
+        char init = 0;
+        __uint8_t checksum;
 
-        if(init)
-        {
-            next_angle_q6 = (__uint16_t)data[0] | ((__uint16_t)(data[1] & (__uint8_t)0x7F) << 8);
-            angle_q6 = (__uint16_t)lastData[0] | ((__uint16_t)(lastData[1] & (__uint8_t)0x7F) << 8);
+        __uint16_t next_angle_q6;
+        __uint16_t angle_q6;
+        float next_angle;
+        float angle;
 
-            next_angle = ((float)next_angle_q6) * 0.015625f;
-            angle = ((float)angle_q6) * 0.015625f;
+        int cursor = 0;
+        LinkedValuesList *turn = NULL;
+        float lastAngle = -1000.f;
 
-            float* values = paquetExtractor(angle, (next_angle < angle ? 360 : 0) + next_angle - angle, lastData);
+        sock = server_wait();
 
-            for(int i=0 ; i < NB_CABINS*2 ; i++)
-            {
-                if(values[(i*2)+1] >= 360.f || values[(i*2)+1] < lastAngle)
-                {
-                    send_turn(sock, turn);
+        int up = 1;
 
-                    turn = NULL;
-                    lastAngle = -1.f;
-                }
+        initLidar(fileDesc);
 
-                LinkedValuesList* val = (LinkedValuesList*) malloc(sizeof(LinkedValuesList));
-                val->next = turn;
-                val->dist = values[(i*2)];
-                val->angle = values[(i*2)+1] - (values[(i*2)+1] >= 360.f ? 360.f : 0.f);
-                turn = val;
+        while (up) {
+            checksum = findPacketStart(fileDesc);
+
+            read(fileDesc, data, 78);
+
+            if (resetScan(data[1]) || cursor >= VALUES_PER_TURN * 2) {
+                cursor = 0;
+                init = 0;
             }
 
-            lastAngle = values[NB_CABINS*4 - 1];
+            if (init) {
+                next_angle_q6 = ((__uint16_t) data[0] | ((__uint16_t) (data[1] & (__uint8_t) 0x7F) << 8)) / (64 << 6);
+                angle_q6 = ((__uint16_t) lastData[0] | ((__uint16_t) (lastData[1] & (__uint8_t) 0x7F) << 8)) / (64 << 6);
+
+                next_angle = (((float) next_angle_q6) * 0.015625f);
+                angle = (((float) angle_q6) * 0.015625f);
+
+                float *values = paquetExtractor(angle_q6 << 2,
+                                                ((next_angle < angle ? 360 << 8 : 0) + (next_angle_q6 << 2) -
+                                                 (angle_q6 << 2)) / (32 << 8), lastData + 2);
+
+                for (int i = 0; i < NB_CABINS * 2; i++) {
+                    if (values[(i * 2) + 1] >= 360.f || values[(i * 2) + 1] < lastAngle) {
+                        up = send_turn(sock, turn) < 0 ? 0 : 1;
+
+                        turn = NULL;
+                        lastAngle = -1000.f;
+                    }
+
+                    LinkedValuesList *val = (LinkedValuesList *) malloc(sizeof(LinkedValuesList));
+                    val->next = turn;
+                    val->dist = values[(i * 2)];
+                    val->angle = values[(i * 2) + 1] - (values[(i * 2) + 1] >= 360.f ? 360.f : 0.f);
+                    turn = val;
+                }
+
+                lastAngle = values[NB_CABINS * 4 - 1];
+
+            } else init = 1;
+
+            temp = lastData;
+            lastData = data;
+            data = temp;
+
+            if (!(++c % 100)) {
+                printf("%lu\n", time() - t);
+                t = time();
+            }
 
         }
-        else init = 1;
 
-        temp = lastData;
-        lastData = data;
-        data = temp;
+        stopLidar(fileDesc);
 
-        if(!(++c%100))
-        {
-            printf("%lu\n", time()-t);
-            t = time();
-        }
+        free(data);
+        free(lastData);
+        free(turn);
 
+        close(sock);
+        close_server();
     }
 
-    stopLidar(fileDesc);
-
-    free(data);
-    free(turn);
-
     close(fileDesc);
+    close(sock);
+    close_server();
 
     return 0;
 }
