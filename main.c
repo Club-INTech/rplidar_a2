@@ -15,7 +15,6 @@
 #include "LinkedValuesList.h"
 #include "tcp.h"
 
-#define VALUES_PER_TURN (360*64)
 #define NB_CABINS (16)
 
 int on = 1;
@@ -146,7 +145,7 @@ void stopLidar(int fileDesc)
 }
 
 //returns checksum
-__uint8_t findPacketStart(int fileDesc)
+__uint8_t findPacketStart(int fileDesc, FILE* outDesc, char out)
 {
     char found = 0;
     char skip = 0;
@@ -156,21 +155,27 @@ __uint8_t findPacketStart(int fileDesc)
     while (!found)
     {
 
-        if(!skip) read(fileDesc, &data, 1);
+        if(!skip)
+        {
+            read(fileDesc, &data, 1);
+            if(out) fwrite(&data, 1, 1, outDesc);
+        }
         else skip = 0;
 
 
         if((data & (__uint8_t)0xF0) == 0xA0)
         {
 
-            checksum = data & (__uint8_t)0x0F;
+            checksum = data & 0xF;
 
             read(fileDesc, &data, 1);
+
+            if(out) fwrite(&data, 1, 1, outDesc);
 
             if((data & (__uint8_t)0xF0) == 0x50)
             {
 
-                checksum = checksum | ((data & (__uint8_t)0x0F) << 4);
+                checksum |= ((data & (__uint8_t)0xF) << 4);
                 found = 1;
             }
             else
@@ -187,6 +192,7 @@ int resetScan(__uint8_t byte)
 {
     return byte & (__uint8_t)0x80;
 }
+
 
 float* paquetExtractor(__uint16_t startAngle_q8, __uint16_t angleDiff_q8, __uint8_t* data)
 {
@@ -221,6 +227,20 @@ float* paquetExtractor(__uint16_t startAngle_q8, __uint16_t angleDiff_q8, __uint
     return res;
 }
 
+int16_t q_div(int16_t a, int16_t b, int Q)
+{
+    /* pre-multiply by the base (Upscale to Q16 so that the result will be in Q8 format) */
+    int32_t temp = (int32_t)a << Q;
+    /* Rounding: mid values are rounded up (down for negative values). */
+    /* OR compare most significant bits i.e. if (((temp >> 31) & 1) == ((b >> 15) & 1)) */
+    if((temp >= 0 && b >= 0) || (temp < 0 && b < 0)) {
+        temp += b / 2;    /* OR shift 1 bit i.e. temp += (b >> 1); */
+    } else {
+        temp -= b / 2;    /* OR shift 1 bit i.e. temp -= (b >> 1); */
+    }
+    return (int16_t)(temp / b);
+}
+
 void sig_handler(int signo)
 {
     if (signo == SIGINT)
@@ -229,28 +249,43 @@ void sig_handler(int signo)
 
 int main(int argc, char** argv) {
 
-    if (argc != 2) {
+    if(argc == 4 && (strcmp(argv[1], "-o")))
+    {
         printf("BAD");
+        printf("usage : ./RPLidarINTechLib [-o <raw output file>] <serial port>");
         return -1;
     }
+    else if (argc != 2 && argc != 4) {
+        printf("BAD");
+        printf("usage : ./RPLidarINTechLib [-o <raw output file>] <serial port>");
+        return -1;
+    }
+
+    char out = 0;
+
+    if(argc == 4) out = 1;
 
     signal(SIGINT, sig_handler);
 
-    int fileDesc = open(argv[1], O_RDWR);
-    if (fileDesc < 0) {
-        printf("error %d opening %s: %s", errno, argv[1], strerror(errno));
+    int serialDesc = open(argv[argc-1], O_RDWR);
+
+    FILE* outDesc = NULL;
+    if(out)outDesc = fopen(argv[2], "w");
+
+    if (serialDesc < 0) {
+        printf("error %d opening %s: %s", errno, argv[argc-1], strerror(errno));
         return -1;
     }
 
-    set_interface_attribs(fileDesc, B115200, 0);        // set speed to 115,200 bps, 8n1 (no parity)
-    set_blocking(fileDesc, 1);
-    setDTR(fileDesc, 0);
+    set_interface_attribs(serialDesc, B115200, 0);        // set speed to 115,200 bps, 8n1 (no parity)
+    set_blocking(serialDesc, 1);
+    setDTR(serialDesc, 0);
 
     int sock = 0;
+    int c = 0;
 
-    while (on)
+    while (on && c != 10000)
     {
-        int c = 0;
         unsigned long t = time();
 
         __uint8_t *data = (__uint8_t *) malloc(sizeof(__uint8_t) * 84);
@@ -259,13 +294,13 @@ int main(int argc, char** argv) {
 
         char init = 0;
         __uint8_t checksum;
+        __uint8_t recvChecksum;
 
         __uint16_t next_angle_q6;
         __uint16_t angle_q6;
         float next_angle;
         float angle;
 
-        int cursor = 0;
         LinkedValuesList *turn = NULL;
         float lastAngle = -1000.f;
 
@@ -273,21 +308,39 @@ int main(int argc, char** argv) {
 
         int up = 1;
 
-        initLidar(fileDesc);
+        initLidar(serialDesc);
 
-        while (up) {
-            checksum = findPacketStart(fileDesc);
+        while (up && c != 10000) {
+            checksum = findPacketStart(serialDesc, outDesc, out);
 
-            read(fileDesc, data, 78);
+            read(serialDesc, data, 78);
 
-            if (resetScan(data[1]) || cursor >= VALUES_PER_TURN * 2) {
-                cursor = 0;
+            if(out) fwrite(&data, 1, 78, outDesc);
+
+            recvChecksum = 0x00;
+
+            for(int b = 0 ; b < 78 ; b++)
+            {
+                recvChecksum ^= data[b];
+            }
+
+            //if(checksum != recvChecksum)
+            //{
+            //    printf("BAD DATA RECV\n");
+            //    init = 0;
+            //    continue;
+            //}
+
+            if (resetScan(data[1])) {
                 init = 0;
+                free(turn);
+                turn = NULL;
+                lastAngle = -1000.f;
             }
 
             if (init) {
-                next_angle_q6 = ((__uint16_t) data[0] | ((__uint16_t) (data[1] & (__uint8_t) 0x7F) << 8)) / (64 << 6);
-                angle_q6 = ((__uint16_t) lastData[0] | ((__uint16_t) (lastData[1] & (__uint8_t) 0x7F) << 8)) / (64 << 6);
+                next_angle_q6 = q_div((__uint16_t) data[0] | ((__uint16_t) (data[1] & (__uint8_t) 0x7F) << 8), 64 ,6);
+                angle_q6 = q_div((__uint16_t) lastData[0] | ((__uint16_t) (lastData[1] & (__uint8_t) 0x7F) << 8), 64, 6);
 
                 next_angle = (((float) next_angle_q6) * 0.015625f);
                 angle = (((float) angle_q6) * 0.015625f);
@@ -326,7 +379,7 @@ int main(int argc, char** argv) {
 
         }
 
-        stopLidar(fileDesc);
+        stopLidar(serialDesc);
 
         free(data);
         free(lastData);
@@ -336,7 +389,8 @@ int main(int argc, char** argv) {
         close_server();
     }
 
-    close(fileDesc);
+    close(serialDesc);
+    fclose(outDesc);
     close(sock);
     close_server();
 
