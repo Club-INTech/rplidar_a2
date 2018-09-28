@@ -19,6 +19,12 @@
 
 int on = 1;
 
+typedef enum {
+    START_FLAG=0xA5,
+    GET_HEALTH=0x52,
+
+} RPLIDAR_BYTES;
+
 void setDTR(int desc, int dtrEnable)
 {
     int flags;
@@ -29,6 +35,7 @@ void setDTR(int desc, int dtrEnable)
 
     ioctl(desc, TIOCMSET, &flags);
 }
+
 unsigned long time() {
     struct timeval tv;
     gettimeofday(&tv,NULL);
@@ -95,62 +102,78 @@ void set_blocking (int fd, int should_block)
 
 void initLidar(int fileDesc)
 {
-    __uint8_t * data = (__uint8_t*) malloc(sizeof(__uint8_t)*10);
+    uint8_t * data = (uint8_t*) malloc(sizeof(uint8_t)*10);
 
-    data[0] = (__uint8_t) 0xA5;
-    data[1] = (__uint8_t) 0x52;
-    data[2] = (__uint8_t) (0x00 & 0xFF);
-    data[3] = (__uint8_t) (0 ^ 0xA5 ^ 0x52);
+    data[0] = (uint8_t) 0xA5;
+    data[1] = (uint8_t) 0x52;
+    data[2] = (uint8_t) (0x00 & 0xFF);
+    data[3] = (uint8_t) (0 ^ 0xA5 ^ 0x52);
 
-    write(fileDesc, data, sizeof(__uint8_t)*4);
-    read(fileDesc, data, sizeof(__uint8_t)*10);
+    write(fileDesc, data, sizeof(uint8_t)*4);
+    read(fileDesc, data, sizeof(uint8_t)*10);
 
-    data[0] = (__uint8_t) 0xA5;
-    data[1] = (__uint8_t) 0xF0;
-    data[2] = (__uint8_t) (0x02 & 0xFF);
-    data[3] = (__uint8_t) 0x94;
-    data[4] = (__uint8_t) 0x02;
-    data[5] = (__uint8_t) (0 ^ 0xA5 ^ 0xF0 ^ 2 ^ 0x94 ^ 0x02);
-
-
-    write(fileDesc, data, sizeof(__uint8_t)*6);
+    data[0] = (uint8_t) 0xA5;
+    data[1] = (uint8_t) 0xF0;
+    data[2] = (uint8_t) (0x02 & 0xFF);
+    data[3] = (uint8_t) 0x94;
+    data[4] = (uint8_t) 0x02;
+    data[5] = (uint8_t) (0 ^ 0xA5 ^ 0xF0 ^ 2 ^ 0x94 ^ 0x02);
 
 
-    data[0] = (__uint8_t) 0xA5;
-    data[1] = (__uint8_t) 0x82;
-    data[2] = (__uint8_t) (0x05 & 0xFF);
-    data[3] = (__uint8_t) 0x00;
-    data[4] = (__uint8_t) 0x00;
-    data[5] = (__uint8_t) 0x00;
-    data[6] = (__uint8_t) 0x00;
-    data[7] = (__uint8_t) 0x00;
-    data[8] = (__uint8_t) 0x22;
+    write(fileDesc, data, sizeof(uint8_t)*6);
 
-    write(fileDesc, data, sizeof(__uint8_t)*9);
-    read(fileDesc, data, sizeof(__uint8_t)*7);
+
+    data[0] = (uint8_t) 0xA5;
+    data[1] = (uint8_t) 0x82;
+    data[2] = (uint8_t) (0x05 & 0xFF);
+    data[3] = (uint8_t) 0x00;
+    data[4] = (uint8_t) 0x00;
+    data[5] = (uint8_t) 0x00;
+    data[6] = (uint8_t) 0x00;
+    data[7] = (uint8_t) 0x00;
+    data[8] = (uint8_t) 0x22;
+
+    write(fileDesc, data, sizeof(uint8_t)*9);
+    read(fileDesc, data, sizeof(uint8_t)*7);
 
     free(data);
 }
 
 void stopLidar(int fileDesc)
 {
-    __uint8_t * data = (__uint8_t*) malloc(sizeof(__uint8_t)*2);
+    uint8_t * data = (uint8_t*) malloc(sizeof(uint8_t)*4);
 
-    data[0] = (__uint8_t) 0xA5;
-    data[1] = (__uint8_t) 0x25;
+    data[0] = (uint8_t) 0xA5;
+    data[1] = (uint8_t) 0x25;
+    data[2] = (uint8_t) 0x00;
+    data[3] = (uint8_t) (0^data[0]^data[1]^data[2]);
+    write(fileDesc, data, sizeof(uint8_t)*4);
+    printf("Sent stop order\n");
+    printf("%d %d %d %d\n", data[0], data[1], data[2], data[3]);
 
-    write(fileDesc, data, sizeof(__uint8_t)*2);
+    free(data);
+
+    data=(uint8_t*) malloc(sizeof(uint8_t)*6);
+    data[0] = (uint8_t) 0xA5;
+    data[1] = (uint8_t) 0xF0;
+    data[2] = (uint8_t) 0x02;
+    data[3] = (uint8_t) 0x00;
+    data[4] = (uint8_t) 0x00;
+    data[5] = (uint8_t) (0^data[0]^data[1]^data[2]^data[3]^data[4]);
+    write(fileDesc, data, sizeof(uint8_t)*6);
+    printf("Sent stop order\n");
+    printf("%d %d %d %d %d %d\n", data[0], data[1], data[2], data[3], data[4], data[5]);
 
     free(data);
 }
 
 //returns checksum
-__uint8_t findPacketStart(int fileDesc, FILE* outDesc, char out)
+uint8_t findPacketStart(int fileDesc, FILE* outDesc, char out)
 {
     char found = 0;
     char skip = 0;
-    __uint8_t checksum = 0;
-    __uint8_t data = 0;
+    uint8_t checksum = 0;
+    uint8_t data = 0;
 
     while (!found)
     {
@@ -163,7 +186,7 @@ __uint8_t findPacketStart(int fileDesc, FILE* outDesc, char out)
         else skip = 0;
 
 
-        if((data & (__uint8_t)0xF0) == 0xA0)
+        if((data & (uint8_t)0xF0) == 0xA0)
         {
 
             checksum = data & 0xF;
@@ -172,10 +195,10 @@ __uint8_t findPacketStart(int fileDesc, FILE* outDesc, char out)
 
             if(out) fwrite(&data, 1, 1, outDesc);
 
-            if((data & (__uint8_t)0xF0) == 0x50)
+            if((data & (uint8_t)0xF0) == 0x50)
             {
 
-                checksum |= ((data & (__uint8_t)0xF) << 4);
+                checksum |= ((data & (uint8_t)0xF) << 4);
                 found = 1;
             }
             else
@@ -188,39 +211,39 @@ __uint8_t findPacketStart(int fileDesc, FILE* outDesc, char out)
     return checksum;
 }
 
-int resetScan(__uint8_t byte)
+int resetScan(uint8_t byte)
 {
-    return byte & (__uint8_t)0x80;
+    return byte & (uint8_t)0x80;
 }
 
 
-float* paquetExtractor(__uint16_t startAngle_q8, __uint16_t angleDiff_q8, __uint8_t* data)
+float* paquetExtractor(uint16_t startAngle_q8, uint16_t angleDiff_q8, uint8_t* data)
 {
     float* res = (float*) malloc(sizeof(float)*NB_CABINS*4);
 
-    __uint16_t dist1_q2;
-    __uint16_t dist2_q2;
-    __uint8_t dAngle1_q3;
-    __uint8_t dAngle2_q3;
+    uint16_t dist1_q2;
+    uint16_t dist2_q2;
+    uint8_t dAngle1_q3;
+    uint8_t dAngle2_q3;
 
     for(char i = 0 ; i < NB_CABINS ; i++)
     {
-        dist1_q2 = ((__uint16_t)(data[(i*5)] & (__uint8_t)0xFC) >> 2) | ((__uint16_t)data[(i*5)+1] << 6);
-        dAngle1_q3 = ((data[(i*5)] & (__uint8_t)0x03) << 4) | (data[(i*5)+4] & (__uint8_t)0x0F);
-        dist2_q2 = ((__uint16_t)(data[(i*5)+2] & (__uint8_t)0xFC) >> 2) | ((__uint16_t)data[(i*5)+3] << 6);
-        dAngle2_q3 = ((data[(i*5)+2] & (__uint8_t)0x03) << 4) | ((data[(i*5)+4] & (__uint8_t)0xF0) >> 4);
+        dist1_q2 = ((uint16_t)(data[(i*5)] & (uint8_t)0xFC) >> 2) | ((uint16_t)data[(i*5)+1] << 6);
+        dAngle1_q3 = ((data[(i*5)] & (uint8_t)0x03) << 4) | (data[(i*5)+4] & (uint8_t)0x0F);
+        dist2_q2 = ((uint16_t)(data[(i*5)+2] & (uint8_t)0xFC) >> 2) | ((uint16_t)data[(i*5)+3] << 6);
+        dAngle2_q3 = ((data[(i*5)+2] & (uint8_t)0x03) << 4) | ((data[(i*5)+4] & (uint8_t)0xF0) >> 4);
 
 
 
         res[(i*4)] = (float)(dist1_q2);
 
         res[(i*4)+1] = (float)(startAngle_q8 + (angleDiff_q8 * (i*2)) )    / (1 << 8);
-        //  - ((dAngle1_q3 & (__uint8_t)0x1F)) << 5) / (1 << 8) * ((dAngle1_q3 & (__uint8_t)0x20) == 0 ? 1.f : -1.f);
+        //  - ((dAngle1_q3 & (uint8_t)0x1F)) << 5) / (1 << 8) * ((dAngle1_q3 & (uint8_t)0x20) == 0 ? 1.f : -1.f);
 
         res[(i*4)+2] = (float)(dist2_q2);
 
         res[(i*4)+3] = (float)(startAngle_q8 + (angleDiff_q8* ((i*2)+1))  ) / (1 << 8) ;
-        // - ((dAngle2_q3 & (__uint8_t)0x1F)) << 5) / (1 << 8) * ((dAngle2_q3 & (__uint8_t)0x20) == 0 ? 1.f : -1.f);
+        // - ((dAngle2_q3 & (uint8_t)0x1F)) << 5) / (1 << 8) * ((dAngle2_q3 & (uint8_t)0x20) == 0 ? 1.f : -1.f);
     }
 
 
@@ -288,16 +311,16 @@ int main(int argc, char** argv) {
     {
         unsigned long t = time();
 
-        __uint8_t *data = (__uint8_t *) malloc(sizeof(__uint8_t) * 84);
-        __uint8_t *lastData = (__uint8_t *) malloc(sizeof(__uint8_t) * 84);
-        __uint8_t *temp;
+        uint8_t *data = (uint8_t *) malloc(sizeof(uint8_t) * 84);
+        uint8_t *lastData = (uint8_t *) malloc(sizeof(uint8_t) * 84);
+        uint8_t *temp;
 
         char init = 0;
-        __uint8_t checksum;
-        __uint8_t recvChecksum;
+        uint8_t checksum;
+        uint8_t recvChecksum;
 
-        __uint16_t next_angle_q6;
-        __uint16_t angle_q6;
+        uint16_t next_angle_q6;
+        uint16_t angle_q6;
         float next_angle;
         float angle;
 
@@ -339,8 +362,8 @@ int main(int argc, char** argv) {
             }
 
             if (init) {
-                next_angle_q6 = q_div((__uint16_t) data[0] | ((__uint16_t) (data[1] & (__uint8_t) 0x7F) << 8), 64 ,6);
-                angle_q6 = q_div((__uint16_t) lastData[0] | ((__uint16_t) (lastData[1] & (__uint8_t) 0x7F) << 8), 64, 6);
+                next_angle_q6 = q_div((uint16_t) data[0] | ((uint16_t) (data[1] & (uint8_t) 0x7F) << 8), 64 ,6);
+                angle_q6 = q_div((uint16_t) lastData[0] | ((uint16_t) (lastData[1] & (uint8_t) 0x7F) << 8), 64, 6);
 
                 next_angle = (((float) next_angle_q6) * 0.015625f);
                 angle = (((float) angle_q6) * 0.015625f);
