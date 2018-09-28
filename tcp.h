@@ -51,7 +51,9 @@ int server_wait()
         printf("Could not create socket");
         return -1;
     }
-
+	if(setsockopt(socket_desc, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int))<0){
+		perror("SetSockOpt(SO_REUSEADDR) failed, error");
+	}
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
     server.sin_port = htons( PORT );

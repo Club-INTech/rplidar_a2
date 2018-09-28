@@ -396,7 +396,7 @@ int main(int argc, char** argv) {
             data = temp;
 
             if (!(++c % 100)) {
-                printf("%lu\n", time() - t);
+                printf("t %lu\n", time() - t);
                 t = time();
             }
 
