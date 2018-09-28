@@ -5,8 +5,24 @@
 #ifndef RPLIDARINTECHLIB_TCP_H
 #define RPLIDARINTECHLIB_TCP_H
 
-#define PORT (17685)
 
+#include <iostream>
+#include <termios.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <sys/ioctl.h>
+#include <sys/time.h>
+#include <math.h>
+#include <signal.h>
+#include <string.h>
+#include <unistd.h>
+
+
+#include "LinkedValuesList.h"
+
+#define PORT (17685)
 int socket_desc = 0;
 
 ssize_t send_turn(int socket, LinkedValuesList* turn)
@@ -51,7 +67,8 @@ int server_wait()
         printf("Could not create socket");
         return -1;
     }
-	if(setsockopt(socket_desc, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int))<0){
+    int on=1;
+	if(setsockopt(socket_desc, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int))<0){
 		perror("SetSockOpt(SO_REUSEADDR) failed, error");
 	}
     server.sin_family = AF_INET;
