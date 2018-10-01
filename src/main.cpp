@@ -12,11 +12,8 @@ unsigned long time() {
 void setDTR(int desc, int dtrEnable)
 {
 	int flags;
-
 	ioctl(desc, TIOCMGET, &flags);
-
 	dtrEnable!=0 ? (flags |= TIOCM_DTR) : (flags &= ~TIOCM_DTR);
-
 	ioctl(desc, TIOCMSET, &flags);
 }
 
@@ -274,6 +271,7 @@ int main(int argc, char** argv) {
 	if(argc == 4) out = 1;
 
 	signal(SIGINT, sig_handler);
+	signal(SIGPIPE, SIG_IGN); // O
 
 	int serialDesc = open(argv[argc-1], O_RDWR);
 

@@ -34,8 +34,9 @@ ssize_t send_turn(int socket, LinkedValuesList* turn)
     LinkedValuesList* current = turn;
     LinkedValuesList* toFree;
 
-    printf("%f \n", turn->dist);
-
+    if(turn->dist >0.01) {
+		printf("%f \n", turn->dist);
+	}
     while(current != NULL)
     {
         cursor += sprintf(cursor, "%.2f:%.2f;", current->dist, current->angle);
