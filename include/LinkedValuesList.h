@@ -2,8 +2,8 @@
 // Created by discord on 5/21/18.
 //
 
-#ifndef RPLIDARINTECHLIB_LINKEDVALUESLIST_H
-#define RPLIDARINTECHLIB_LINKEDVALUESLIST_H
+#ifndef RPLIDAR_A2_LINKEDVALUESLIST_H
+#define RPLIDAR_A2_LINKEDVALUESLIST_H
 
 struct linked_values_list
 {
@@ -14,4 +14,4 @@ struct linked_values_list
 
 typedef struct linked_values_list LinkedValuesList;
 
-#endif //RPLIDARINTECHLIB_LINKEDVALUESLIST_H
+#endif //RPLIDAR_A2_LINKEDVALUESLIST_H

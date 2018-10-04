@@ -2,8 +2,8 @@
 // Created by discord on 6/17/18.
 //
 
-#ifndef RPLIDARINTECHLIB_TCP_H
-#define RPLIDARINTECHLIB_TCP_H
+#ifndef RPLIDAR_A2_TCP_H
+#define RPLIDAR_A2_TCP_H
 
 
 #include <iostream>
@@ -99,4 +99,4 @@ void close_server()
 }
 
 
-#endif //RPLIDARINTECHLIB_TCP_H
+#endif //RPLIDAR_A2_TCP_H

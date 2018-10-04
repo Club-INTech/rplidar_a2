@@ -1,6 +1,6 @@
 TCP server is on port 17685
 
-Connecting starts the LiDAR and sends data continuously in ASCII.
+Connecting starts the RPLidar and sends data continuously in ASCII.
 
 Each line is one full turn, meaning each turn is separated with a '\n'
 
