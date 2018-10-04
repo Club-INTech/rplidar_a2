@@ -1,3 +1,4 @@
+#include "RequestPacket.hpp"
 #include "tcp.h"
 #include "LinkedValuesList.h"
 #define NB_CABINS (16)
@@ -80,14 +81,11 @@ void initLidar(int fileDesc)
 {
 	uint8_t * data = (uint8_t*) malloc(sizeof(uint8_t)*10);
 
-	data[0] = (uint8_t) 0xA5;
-	data[1] = (uint8_t) 0x52;
-	data[2] = (uint8_t) 0x00;
-	data[3] = (uint8_t) (0 ^ 0xA5 ^ 0x52);
+	RequestPacket packet=RequestPacket(OrderByte::GET_HEALTH);
+	packet.get_packet(data);
 
-	write(fileDesc, data, sizeof(uint8_t)*4);
+	write(fileDesc, data, sizeof(uint8_t)*packet.payload_size+2);
 	read(fileDesc, data, sizeof(uint8_t)*10);
-
 	data[0] = (uint8_t) 0xA5;
 	data[1] = (uint8_t) 0xF0;
 	data[2] = (uint8_t) 0x02;
@@ -95,9 +93,7 @@ void initLidar(int fileDesc)
 	data[4] = (uint8_t) 0x02;
 	data[5] = (uint8_t) (0 ^ 0xA5 ^ 0xF0 ^ 2 ^ 0x94 ^ 0x02);
 
-
 	write(fileDesc, data, sizeof(uint8_t)*6);
-
 
 	data[0] = (uint8_t) 0xA5;
 	data[1] = (uint8_t) 0x82;

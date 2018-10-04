@@ -27,7 +27,6 @@ int socket_desc = 0;
 
 ssize_t send_turn(int socket, LinkedValuesList* turn)
 {
-
     int c = 0;
     char * buf = (char*)malloc(10000);
     char * cursor = buf;
