@@ -17,7 +17,9 @@ class SerialCommunication {
 	void set_blocking(bool should_block);
 public:
 	SerialCommunication(const char* filePath, speed_t baudrate, int parity);
-	void send_packet(const RequestPacket& packet);
+	rp_values::ComResult send_packet(const RequestPacket &packet);
+	uint32_t read_descriptor(rp_values::OrderByte order);
+	uint8_t* read_data(uint32_t num_bytes);
 };
 
 

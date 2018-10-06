@@ -4,10 +4,17 @@
 #include <unistd.h>
 int main(int argc, char** argv){
 	RPLidar lidar(argv[argc-1]);
-	lidar.set_pwm(660);
+	lidar.get_health();
+	lidar.get_info();
+	lidar.get_samplerate();
+	lidar.stop_motor();
+	printf("MOTOR START\n");
+	lidar.start_motor();
+	lidar.start_express_scan();
 
-	sleep(5);
+	sleep(3);
 
-	lidar.set_pwm(0);
+	printf("MOTOR STOP\n");
+	lidar.stop_motor();
 	return 0;
 }

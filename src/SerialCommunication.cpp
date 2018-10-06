@@ -7,8 +7,12 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+#include <SerialCommunication.hpp>
+
 
 #include "SerialCommunication.hpp"
+
+using namespace rp_values;
 
 SerialCommunication::SerialCommunication(const char *filePath, uint32_t baudrate, int parity) {
 	serial_fd=open(filePath, O_RDWR);
@@ -17,6 +21,7 @@ SerialCommunication::SerialCommunication(const char *filePath, uint32_t baudrate
 	setDTR(false);														//DTR wire is used for PWM control
 	memset(data, 0, rp_values::MAX_PAYLOAD);	//Initialize data to 0
 }
+
 
 /**
  * Enables or disables the DTR control signal
@@ -28,6 +33,7 @@ void SerialCommunication::setDTR(bool enable) {
 	enable ? (flags |= TIOCM_DTR) : (flags &= ~TIOCM_DTR);
 	ioctl(serial_fd, TIOCMSET, &flags);
 }
+
 
 /**
  * Sets the file descriptor interface attributes for Serial communication
@@ -75,6 +81,7 @@ int SerialCommunication::set_interface_attribs(int speed, int parity) {
 	return 0;
 }
 
+
 /**
  * Sets blocking state of the file descriptor interface
  * @param should_block
@@ -95,30 +102,47 @@ void SerialCommunication::set_blocking(bool should_block) {
 		printf ("error %d setting term attributes", errno);
 }
 
+
 /**
  * Sends data from a RequestPacket reference
  * @param packet
  */
-void SerialCommunication::send_packet(const RequestPacket& packet) {
-	memset(data, 0, rp_values::MAX_PAYLOAD);
+ComResult SerialCommunication::send_packet(const RequestPacket &packet) {
+	memset(data, 0, MAX_PAYLOAD);
 	uint8_t size=packet.get_packet(data);
 	ssize_t written=write(serial_fd, data, size);
 	if(written<size){
 		perror("Error: serial write incomplete:");
-		exit(EXIT_FAILURE);
+		return STATUS_ERROR;	//Couldn't send data completely
 	}
-	if(!(packet.order == rp_values::OrderByte::STOP ||
-		  packet.order == rp_values::OrderByte::RESET ||
-		  packet.order == rp_values::OrderByte::SET_PWM))
-	{
-		ssize_t read_size = read(serial_fd, data, 10);
-		if (read_size > 0) {
-			printf("READ %d bytes\n", (int) read_size);
-			for (int i = 0; i < read_size; i++) {
-				printf("%#02x ", data[i]);
-			}
-			printf("\n");
-		}
-	}
+	return STATUS_OK; //All went well, nothing to return
 }
 
+
+uint32_t SerialCommunication::read_descriptor(OrderByte order){
+	uint8_t read_descriptor[7]={0};
+	ssize_t read_size = read(serial_fd, read_descriptor, 7);
+	if(read_size<7){
+		printf("Error: serial descriptor read incomplete: read %d/7 bytes\n", (uint32_t)read_size);
+		return 0; //Return 0, let the user handle what happens
+	}
+	if(read_descriptor[0]!=START_FLAG || read_descriptor[1]!=START_FLAG_2){
+		printf("Error: serial descriptor start flags wrong, got %#02x:%#02x\n", read_descriptor[0], read_descriptor[1]);
+		return 0;
+	}
+	uint32_t response_data_len=0;
+	for(int i=2;i<6;i++){
+		response_data_len|=read_descriptor[i]<<(i-2);
+	}
+	return response_data_len;
+}
+
+uint8_t *SerialCommunication::read_data(uint32_t num_bytes) {
+	uint8_t* read_data=new uint8_t[num_bytes];
+	ssize_t read_size = read(serial_fd, read_data, num_bytes);
+	if(read_size<num_bytes){
+		printf("Error: read less data bytes than expected, got %d/%d\n", (uint32_t)read_size, num_bytes);
+		return nullptr;
+	}
+	return read_data;
+}

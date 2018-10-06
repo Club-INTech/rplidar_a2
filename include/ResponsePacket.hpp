@@ -1,8 +1,0 @@
-//
-// Created by tic-tac on 10/1/18.
-//
-
-#ifndef RPLIDAR_A2_RESPONSEPACKET_HPP
-#define RPLIDAR_A2_RESPONSEPACKET_HPP
-
-#endif //RPLIDAR_A2_RESPONSEPACKET_HPP

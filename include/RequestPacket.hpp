@@ -11,12 +11,12 @@
 
 
 struct RequestPacket{
-	uint8_t order;					// Ordre à envoyer
+	rp_values::OrderByte order;					// Ordre à envoyer
 	uint8_t payload_size;	// Nombre de paramètres à envoyer
 	uint8_t checksum=0;	// Recalculé à chaque ajout de valeur de payload
 	std::vector<uint8_t> payload;	// Arguments de l'ordre
 
-	RequestPacket(uint8_t p_order):order(p_order){
+	RequestPacket(rp_values::OrderByte p_order):order(p_order){
 		payload.clear();
 		//Only SET_PWM and EXPRESS_SCAN require a payload
 		switch(p_order){
