@@ -10,12 +10,12 @@ public:
 	rp_values::ComResult send_packet(rp_values::OrderByte order, const std::vector<uint8_t> &payload={});
 	int get_health();
 	int get_info();
-	int get_samplerate();
-	int set_pwm(uint16_t pwm);
-	int start_motor();
-	int stop_motor();
+	rp_values::ComResult get_samplerate(uint16_t *sample_rate);
+	rp_values::ComResult set_pwm(uint16_t pwm);
+	rp_values::ComResult start_motor();
+	rp_values::ComResult stop_motor();
 
-	void start_express_scan();
+	rp_values::ComResult start_express_scan();
 };
 
 #endif //RPLIDAR_A2_LIDAR_HPP

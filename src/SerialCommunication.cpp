@@ -14,9 +14,9 @@
 
 using namespace rp_values;
 
-SerialCommunication::SerialCommunication(const char *filePath, uint32_t baudrate, int parity) {
+SerialCommunication::SerialCommunication(const char *filePath, speed_t baudrate, int parity) {
 	serial_fd=open(filePath, O_RDWR);
-	set_interface_attribs(B115200, 0); 					//8N1 at 115200
+	set_interface_attribs(baudrate, parity); 					//8N1 at 115200
 	set_blocking(true);												//Non Blocking communication
 	setDTR(false);														//DTR wire is used for PWM control
 	memset(data, 0, rp_values::MAX_PAYLOAD);	//Initialize data to 0
@@ -119,7 +119,7 @@ ComResult SerialCommunication::send_packet(const RequestPacket &packet) {
 }
 
 
-uint32_t SerialCommunication::read_descriptor(OrderByte order){
+uint32_t SerialCommunication::read_descriptor() {
 	uint8_t read_descriptor[7]={0};
 	ssize_t read_size = read(serial_fd, read_descriptor, 7);
 	if(read_size<7){
@@ -137,6 +137,11 @@ uint32_t SerialCommunication::read_descriptor(OrderByte order){
 	return response_data_len;
 }
 
+/**
+ * Reads n bytes of data, assumes the reader later calls delete[] on the pointer returned
+ * @param num_bytes
+ * @return pointer to an array of num_bytes of read_data, in little endian format
+ */
 uint8_t *SerialCommunication::read_data(uint32_t num_bytes) {
 	uint8_t* read_data=new uint8_t[num_bytes];
 	ssize_t read_size = read(serial_fd, read_data, num_bytes);
