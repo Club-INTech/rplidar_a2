@@ -1,10 +1,8 @@
-
-#include <RPLidar.hpp>
-
 #include "RPLidar.hpp"
-
+#include "ReturnDataWrappers.hpp"
 
 using namespace rp_values;
+using namespace data_wrappers;
 
 RPLidar::RPLidar(const char *serial_path) : port(serial_path, B115200, 0){}
 
@@ -34,17 +32,13 @@ ComResult RPLidar::send_packet(OrderByte order, const std::vector<uint8_t> &payl
 	return STATUS_OK;
 }
 
-int RPLidar::get_health() {
+int RPLidar::get_health(HealthData *health_data) {
 	send_packet(GET_HEALTH);
 	uint32_t data_len= port.read_descriptor();
-	uint8_t* health=port.read_data(data_len);
-	printf("Health:\t");
-	for(uint32_t i=0;i<data_len;i++){
-		printf("%#02x ", health[i]);
-	}
-	printf("\n");
-	delete[] health;
-	//TODO: get the health in a useful format
+	uint8_t* health_array=port.read_data(data_len);
+	*health_data=HealthData(health_array);
+	delete[] health_array;
+	//TODO: get the health_array in a useful format
 	return 0;
 }
 
@@ -63,15 +57,15 @@ int RPLidar::get_info() {
 }
 
 /**
- * Asks the sampling rates to the LiDAR
+ * Asks the sampling rate to the LiDAR
  * @param sample_rate for express scans (it is actually the period un us)
  * @return result of the communication
  */
-ComResult RPLidar::get_samplerate(uint16_t *sample_rate) {
+ComResult RPLidar::get_samplerate(SampleRateData *sample_rate) {
 	send_packet(GET_SAMPLERATE);
 	uint32_t data_len= port.read_descriptor();
 	uint8_t* sampe_rate_data=port.read_data(data_len);
-	*sample_rate = (sampe_rate_data[3]<<8) | (sampe_rate_data[2]);
+	*sample_rate=SampleRateData(sampe_rate_data);
 	delete[] sampe_rate_data;
 	return STATUS_OK;
 }
@@ -94,10 +88,11 @@ ComResult RPLidar::start_motor() {
  * @return result of the communication
  */
 ComResult RPLidar::stop_motor() {
-	for(int i=0;i<NUMBER_TRIES-1;i++) {
-		set_pwm(0);
+	ComResult status=STATUS_OK;
+	for(int i=0;i<NUMBER_TRIES;i++) {
+		status=set_pwm(0)==STATUS_OK?STATUS_OK:STATUS_ERROR;
 	}
-	return set_pwm(0);
+	return status;
 }
 
 /**
@@ -122,3 +117,9 @@ ComResult RPLidar::set_pwm(uint16_t pwm) {
 ComResult RPLidar::start_express_scan() {
 	return send_packet(EXPRESS_SCAN, {0,0,0,0,0});
 }
+
+rp_values::ComResult RPLidar::stop_scan() {
+	return send_packet(STOP);
+}
+
+

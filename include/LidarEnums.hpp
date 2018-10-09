@@ -9,8 +9,11 @@
 namespace rp_values{
 	static constexpr uint8_t START_FLAG=0xA5;
 	static constexpr uint8_t START_FLAG_2=0x5A;
+
 	static constexpr uint8_t NUMBER_TRIES=10;
+
 	static constexpr uint8_t MAX_PAYLOAD=9;
+
 	enum OrderByte{
 		STOP 							= (uint8_t) 0x25,
 		RESET 						= (uint8_t) 0x40,
@@ -23,10 +26,16 @@ namespace rp_values{
 		GET_SAMPLERATE 	= (uint8_t) 0x59
 	};
 
-	typedef enum{
+	enum ComResult{
 		STATUS_ERROR=-1,
-		STATUS_OK=0
-	}ComResult;
+		STATUS_OK=1
+	};
+
+	enum LidarStatus{
+		LIDAR_OK=0,
+		LIDAR_WARNING,
+		LIDAR_ERROR
+	};
 }
 
 #endif //RPLIDAR_A2_LIDARENUMS_HPP
