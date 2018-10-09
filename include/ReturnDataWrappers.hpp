@@ -6,10 +6,10 @@
 #define RPLIDAR_A2_RETURNDATAWRAPPERS_HPP
 
 #include <cstdint>
+#include <vector>
 #include "LidarEnums.hpp"
 
 namespace data_wrappers {
-
 	struct SampleRateData {
 		uint16_t scan_sample_rate=0;
 		uint16_t express_sample_rate=0;
@@ -70,6 +70,16 @@ namespace data_wrappers {
 			for(int i=0;i<16;i++){
 				serial_number[i]=raw_data[i+4];
 			}
+		}
+	};
+
+
+	struct ScanPoint{
+		uint16_t distance;
+		uint16_t angle; //Angle Q6
+		ScanPoint(uint16_t d, uint16_t a){
+			distance=d;
+			angle=a;
 		}
 	};
 }

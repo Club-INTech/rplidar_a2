@@ -4,7 +4,7 @@
 
 #ifndef RPLIDAR_A2_LIDARENUMS_HPP
 #define RPLIDAR_A2_LIDARENUMS_HPP
-#include <stdint.h>
+#include <cstdint>
 
 namespace rp_values{
 	static constexpr uint8_t START_FLAG=0xA5;

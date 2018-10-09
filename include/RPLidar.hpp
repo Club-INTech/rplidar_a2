@@ -4,6 +4,8 @@
 #include "SerialCommunication.hpp"
 #include "ReturnDataWrappers.hpp"
 
+uint8_t scan_data_checksum(const std::vector<uint8_t>& scan_data);
+
 class RPLidar {
 	SerialCommunication port;
 public:

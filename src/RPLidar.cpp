@@ -9,6 +9,13 @@ using namespace data_wrappers;
 
 RPLidar::RPLidar(const char *serial_path) : port(serial_path, B115200, 0){}
 
+uint8_t scan_data_checksum(const std::vector<uint8_t>& scan_data){
+	uint8_t checksum=0;
+	for(unsigned long i=2;i<scan_data.size(); i++){
+		checksum^=scan_data[i];
+	}
+	return checksum;
+}
 
 void RPLidar::print_status(){
 	InfoData infoData;
@@ -138,7 +145,6 @@ ComResult RPLidar::start_express_scan() {
 
 
 rp_values::ComResult RPLidar::read_scan_data(std::vector<uint8_t> &output_data) {
-	printf("START READ\n");
 	uint8_t* read_data = port.read_data(DATA_SIZE_EXPRESS_SCAN);
 	if(read_data==nullptr){
 		return ComResult::STATUS_ERROR;
