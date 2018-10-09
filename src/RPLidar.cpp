@@ -1,3 +1,6 @@
+
+#include <RPLidar.hpp>
+
 #include "RPLidar.hpp"
 #include "ReturnDataWrappers.hpp"
 
@@ -5,6 +8,25 @@ using namespace rp_values;
 using namespace data_wrappers;
 
 RPLidar::RPLidar(const char *serial_path) : port(serial_path, B115200, 0){}
+
+
+void RPLidar::print_status(){
+	InfoData infoData;
+	get_info(&infoData);
+	printf("Model: 0x%02x\n", infoData.model);
+
+	HealthData healthData;
+	get_health(&healthData);
+	printf("Lidar Health: %s\n", healthData.status==rp_values::LidarStatus::LIDAR_OK?"OK":(healthData.status==rp_values::LidarStatus::LIDAR_WARNING?"WARNING":"ERROR"));
+	if(healthData.status>0){
+		printf("Warning/Error code: %u\n", healthData.error_code);
+	}
+
+	SampleRateData sampleRateData;
+	get_samplerate(&sampleRateData);
+	printf("Scan sampling period(us):%u\nExpress sampling period:%u\n", sampleRateData.scan_sample_rate, sampleRateData.express_sample_rate);
+}
+
 
 /**
  * Sends a packet to the LiDAR
@@ -32,28 +54,22 @@ ComResult RPLidar::send_packet(OrderByte order, const std::vector<uint8_t> &payl
 	return STATUS_OK;
 }
 
-int RPLidar::get_health(HealthData *health_data) {
-	send_packet(GET_HEALTH);
+ComResult RPLidar::get_health(HealthData *health_data) {
+	ComResult status=send_packet(GET_HEALTH);
 	uint32_t data_len= port.read_descriptor();
 	uint8_t* health_array=port.read_data(data_len);
 	*health_data=HealthData(health_array);
 	delete[] health_array;
-	//TODO: get the health_array in a useful format
-	return 0;
+	return status;
 }
 
-int RPLidar::get_info() {
-	send_packet(GET_INFO);
+rp_values::ComResult RPLidar::get_info(data_wrappers::InfoData *info_data) {
+	ComResult status=send_packet(GET_INFO);
 	uint32_t data_len= port.read_descriptor();
-	uint8_t* info=port.read_data(data_len);
-	printf("Info:\t");
-	for(uint32_t i=0;i<data_len;i++){
-		printf("%#02x ", info[i]);
-	}
-	printf("\n");
-	delete[] info;
-	//TODO: get the useful info in a good format
-	return 0;
+	uint8_t* raw_info=port.read_data(data_len);
+	*info_data=InfoData(raw_info);
+	delete[] raw_info;
+	return status;
 }
 
 /**
@@ -77,7 +93,7 @@ ComResult RPLidar::get_samplerate(SampleRateData *sample_rate) {
  */
 ComResult RPLidar::start_motor() {
 	for(int i=0;i<NUMBER_TRIES-1;i++) {
-		set_pwm(660);
+		set_pwm(DEFAULT_MOTOR_PWM);
 	}
 	return STATUS_OK;
 }
@@ -115,11 +131,29 @@ ComResult RPLidar::set_pwm(uint16_t pwm) {
  * @return result of the communication
  */
 ComResult RPLidar::start_express_scan() {
-	return send_packet(EXPRESS_SCAN, {0,0,0,0,0});
+	send_packet(EXPRESS_SCAN, {0,0,0,0,0});
+	uint32_t data_size = port.read_descriptor();
+	return data_size==84?ComResult::STATUS_OK:ComResult::STATUS_ERROR;
 }
+
+
+rp_values::ComResult RPLidar::read_scan_data(std::vector<uint8_t> &output_data) {
+	printf("START READ\n");
+	uint8_t* read_data = port.read_data(DATA_SIZE_EXPRESS_SCAN);
+	if(read_data==nullptr){
+		return ComResult::STATUS_ERROR;
+	}
+	for(uint32_t i=0;i<DATA_SIZE_EXPRESS_SCAN;i++){
+		output_data.push_back(read_data[i]);
+	}
+	delete[] read_data;
+	return STATUS_OK;
+}
+
 
 rp_values::ComResult RPLidar::stop_scan() {
 	return send_packet(STOP);
 }
+
 
 

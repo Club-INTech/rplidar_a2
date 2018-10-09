@@ -122,6 +122,10 @@ ComResult SerialCommunication::send_packet(const RequestPacket &packet) {
 uint32_t SerialCommunication::read_descriptor() {
 	uint8_t read_descriptor[7]={0};
 	ssize_t read_size = read(serial_fd, read_descriptor, 7);
+//	for(uint32_t i=0;i<read_size;i++){
+//		printf("%#02x ", read_descriptor[i]);
+//	}
+//	printf("\n");
 	if(read_size<7){
 		printf("Error: serial descriptor read incomplete: read %d/7 bytes\n", (uint32_t)read_size);
 		return 0; //Return 0, let the user handle what happens
@@ -131,9 +135,10 @@ uint32_t SerialCommunication::read_descriptor() {
 		return 0;
 	}
 	uint32_t response_data_len=0;
-	for(int i=2;i<6;i++){
+	for(int i=2;i<5;i++){
 		response_data_len|=read_descriptor[i]<<(i-2);
 	}
+	response_data_len|=read_descriptor[5]&0x3F; // size is 30 bits, not 32: last byte is reduce with a mast 0x00111111
 	return response_data_len;
 }
 
@@ -148,6 +153,16 @@ uint8_t *SerialCommunication::read_data(uint32_t num_bytes) {
 	if(read_size<num_bytes){
 		printf("Error: read less data bytes than expected, got %d/%d\n", (uint32_t)read_size, num_bytes);
 		return nullptr;
+	}
+	return read_data;
+}
+
+uint8_t SerialCommunication::read_byte() {
+	uint8_t read_data;
+	ssize_t read_size = read(serial_fd, &read_data, 1);
+	if(read_size<1){
+		printf("Error: read 0 bytes\n");
+		return 0;
 	}
 	return read_data;
 }
