@@ -137,10 +137,11 @@ ComResult RPLidar::set_pwm(uint16_t pwm) {
  * then the data should be read
  * @return result of the communication
  */
+
 ComResult RPLidar::start_express_scan() {
 	send_packet(EXPRESS_SCAN, {0,0,0,0,0});
 	uint32_t data_size = port.read_descriptor();
-	return data_size==84?ComResult::STATUS_OK:ComResult::STATUS_ERROR;
+	return data_size==DATA_SIZE_EXPRESS_SCAN?ComResult::STATUS_OK:ComResult::STATUS_ERROR;
 }
 
 

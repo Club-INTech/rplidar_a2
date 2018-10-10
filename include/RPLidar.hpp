@@ -7,8 +7,9 @@
 uint8_t scan_data_checksum(const std::vector<uint8_t>& scan_data);
 
 class RPLidar {
-	SerialCommunication port;
 public:
+	SerialCommunication port;
+
 	RPLidar(const char* serial_path);
 
 	void print_status();
