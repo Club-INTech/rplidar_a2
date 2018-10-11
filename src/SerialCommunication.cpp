@@ -46,38 +46,93 @@ void SerialCommunication::setDTR(bool enable) {
  * @param parity : parity of the communication(usually 0)
  * @return
  */
-int SerialCommunication::set_interface_attribs(int speed, int parity) {
+int SerialCommunication::set_interface_attribs(speed_t speed, int parity) {
 	struct termios tty;
 	memset (&tty, 0, sizeof tty);
-	if (tcgetattr (serial_fd, &tty) != 0)
+	if (tcgetattr (serial_fd, &tty) < 0)
 	{
 		perror ("error from tcgetattr");
 		return -1;
 	}
-	cfsetospeed (&tty, speed);
-	cfsetispeed (&tty, speed);
 
-	tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;     // 8-bit chars
-	// disable IGNBRK for mismatched speed tests; otherwise receive break
-	// as \000 chars
-		tty.c_iflag &= ~IGNBRK;         // ignore break signal
-	tty.c_lflag = 0;                // no signaling chars, no echo,
-	// no canonical processing
-	tty.c_oflag = 0;                // no remapping, no delays
-	tty.c_cc[VMIN]  = 0;            // read doesn't block
-	tty.c_cc[VTIME] = 5;            // 0.5 seconds read timeout
+	//
+	// Input flags - Turn off input processing
+	//
+	// convert break to null byte, no CR to NL translation,
+	// no NL to CR translation, don't mark parity errors or breaks
+	// no input parity check, don't strip high bit off,
+	// no XON/XOFF software flow control
+	tty.c_iflag &=~(IGNBRK | BRKINT | ICRNL | INLCR | PARMRK | INPCK | ISTRIP | IXON);
 
-	tty.c_iflag &= ~(IXON | IXOFF | IXANY); // shut off xon/xoff ctrl
+	//
+	// Output flags - Turn off output processing
+	//
+	// no CR to NL translation, no NL to CR-NL translation,
+	// no NL to CR translation, no column 0 CR suppression,
+	// no Ctrl-D suppression, no fill characters, no case mapping,
+	// no local output processing
+	//
+	// config.c_oflag &= ~(OCRNL | ONLCR | ONLRET |
+	//                     ONOCR | ONOEOT| OFILL | OLCUC | OPOST);
+	tty.c_oflag = 0;
 
-	tty.c_cflag |= (CLOCAL | CREAD);// ignore modem controls,
-	// enable reading
-	tty.c_cflag &= ~(PARENB | PARODD);      // shut off parity
+	//
+	// No line processing
+	//
+	// echo off, echo newline off, canonical mode off,
+	// extended input processing off, signal chars off
+	//
+	tty.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
 
-	tty.c_cflag |= parity;
-	tty.c_cflag &= ~CSTOPB;
-	tty.c_cflag &= ~CRTSCTS;
+	//
+	// Turn off character processing
+	//
+	// clear current char size mask, no parity checking,
+	// no output processing, force 8 bit input
+	//
+	tty.c_cflag &= ~(CSIZE | PARENB);
+	tty.c_cflag |= CS8;
 
-	if (tcsetattr (serial_fd, TCSANOW, &tty) != 0)
+	//
+	// One input byte is enough to return from read()
+	// Inter-character timer off
+	//
+	tty.c_cc[VMIN]  = 1;
+	tty.c_cc[VTIME] = 0;
+
+	//
+	// Communication speed (simple version, using the predefined
+	// constants)
+	//
+	if(cfsetispeed(&tty, speed) < 0 || cfsetospeed(&tty, speed) < 0) {
+		printf("Error: cfsetispeed | cfsetospeed\n");
+		exit(EXIT_FAILURE);
+	}
+//
+//	cfsetospeed (&tty, speed);
+//	cfsetispeed (&tty, speed);
+//
+//	tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;     // 8-bit chars
+//	// disable IGNBRK for mismatched speed tests; otherwise receive break
+//	// as \000 chars
+//		tty.c_iflag &= ~IGNBRK;         // ignore break signal
+//	tty.c_lflag = 0;                // no signaling chars, no echo,
+//	// no canonical processing
+//	tty.c_oflag = 0;                // no remapping, no delays
+//	tty.c_cc[VMIN]  = 0;            // read doesn't block
+//	tty.c_cc[VTIME] = 5;            // 0.5 seconds read timeout
+//
+//	tty.c_iflag &= ~(IXON | IXOFF | IXANY); // shut off xon/xoff ctrl
+//
+//	tty.c_cflag |= (CLOCAL | CREAD);// ignore modem controls,
+//	// enable reading
+//	tty.c_cflag &= ~(PARENB | PARODD);      // shut off parity
+//
+//	tty.c_cflag |= parity;
+//	tty.c_cflag &= ~CSTOPB;
+//	tty.c_cflag &= ~CRTSCTS;
+
+	if (tcsetattr (serial_fd, TCSAFLUSH, &tty) < 0)
 	{
 		printf ("error %d from tcsetattr", errno);
 		return -1;

@@ -15,7 +15,7 @@ public:
 	std::string path;
 	uint8_t data[9];
 	void setDTR(bool enable);
-	int set_interface_attribs(int speed, int parity);
+	int set_interface_attribs(speed_t speed, int parity);
 	void set_blocking(bool should_block);
 public:
 	SerialCommunication(const char* filePath, speed_t baudrate, int parity);
