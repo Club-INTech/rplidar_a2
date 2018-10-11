@@ -7,15 +7,23 @@
 #include <cstdint>
 
 namespace rp_values{
+
+	//Flags used to synchronize with LiDAR
 	static constexpr uint8_t START_FLAG=0xA5;
 	static constexpr uint8_t START_FLAG_2=0x5A;
 
-	static constexpr uint8_t NUMBER_TRIES=20;
+	//Number of tries for PWM spam (required as we have no feedback)
+	static constexpr uint8_t NUMBER_PWM_TRIES=20;
 
-	static constexpr uint8_t MAX_PAYLOAD=9;
-	static constexpr uint8_t DATA_SIZE_EXPRESS_SCAN=84;
-	static constexpr uint8_t DATA_SIZE_SCAN=5;
+	//Motor PWM is between 0 and 1023, this is the default speed
 	static constexpr uint16_t DEFAULT_MOTOR_PWM=660;
+
+	//Sizes of different output and input packets
+	static constexpr uint8_t REQUEST_SIZE=9;
+	static constexpr uint8_t DESCRIPTOR_SIZE=7;
+	static constexpr uint8_t DATA_SIZE_SCAN=5;
+	static constexpr uint8_t DATA_SIZE_EXPRESS_SCAN=84;
+
 	enum OrderByte{
 		STOP 							= (uint8_t) 0x25,
 		RESET 						= (uint8_t) 0x40,
@@ -35,10 +43,11 @@ namespace rp_values{
 		STATUS_OK=0
 	};
 
+	//Used for health checking
 	enum LidarStatus{
+		LIDAR_ERROR=-2,
+		LIDAR_WARNING=-1,
 		LIDAR_OK=0,
-		LIDAR_WARNING,
-		LIDAR_ERROR
 	};
 }
 

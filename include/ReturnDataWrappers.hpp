@@ -153,16 +153,10 @@ namespace data_wrappers {
 				delta_angle2*=((raw_bytes[i+2]&2)>>1)==0?1:-1;
 				distances.push_back(d1);
 				distances.push_back(d2);
-//				printf("d1 %d d2 %d \n", d1, d2);
-//				printf("da1 %f da2 %f \n", delta_angle1, delta_angle2);
 				d_angles.push_back(delta_angle1);
 				d_angles.push_back(delta_angle2);
 			}
 			return rp_values::ComResult::STATUS_OK;
-		}
-
-		void next_measurement(){
-
 		}
 
 		rp_values::ComResult check_flags_parity(const std::vector<uint8_t>& raw_bytes){

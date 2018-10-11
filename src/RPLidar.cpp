@@ -1,9 +1,8 @@
-#include "RPLidar.hpp"
 #include <csignal>
-#include <RPLidar.hpp>
 #include <cmath>
-
+#include <iostream>
 #include "ReturnDataWrappers.hpp"
+#include "RPLidar.hpp"
 
 using namespace rp_values;
 using namespace data_wrappers;
@@ -38,20 +37,28 @@ RPLidar::RPLidar(const char *serial_path) : port(serial_path, B115200, 0){
 void RPLidar::print_status(){
 	InfoData infoData;
 	get_info(&infoData);
+	std::cout<<"#########################################\n";
+	
 	printf("#########################################\n");
-	printf("#\t\tRPLidar Model: A%dM%d\t\t\t\t#\n", infoData.model>>4, infoData.model&0x0F);
-	printf("#\t\tFirmware version: 0x%02X%02X\t\t#\n", infoData.firmware_major, infoData.firmware_minor);
+	printf("#\t\tRPLidar Model: A%dM%d\n", infoData.model>>4, infoData.model&0x0F);
+	printf("#\t\tFirmware version: 0x%02X%02X\n", infoData.firmware_major, infoData.firmware_minor);
 
 	HealthData healthData;
 	get_health(&healthData);
-	printf("#\t\tLidar Health: %s\t\t\t\t#\n", healthData.status==rp_values::LidarStatus::LIDAR_OK?"OK":(healthData.status==rp_values::LidarStatus::LIDAR_WARNING?"WARNING":"ERROR"));
+	printf("#\t\tLidar Health: %s\n", healthData.status==rp_values::LidarStatus::LIDAR_OK?"OK":(healthData.status==rp_values::LidarStatus::LIDAR_WARNING?"WARNING":"ERROR"));
 	if(healthData.status>0){
 		printf("Warning/Error code: %u\n", healthData.error_code);
+	}
+	if(healthData.status==rp_values::LidarStatus::LIDAR_WARNING){
+		printf("WARNING: LiDAR in warning state, may deteriorate\n");
+	}
+	if(healthData.status==rp_values::LidarStatus::LIDAR_ERROR){
+		printf("WARNING: LiDAR in critical state\n");
 	}
 
 	SampleRateData sampleRateData;
 	get_samplerate(&sampleRateData);
-	printf("#\t\tScan sampling period(us):%u\t#\n#\t\tExpress sampling period:%u\t\t#\n", sampleRateData.scan_sample_rate, sampleRateData.express_sample_rate);
+	printf("#\t\tScan sampling period(us):%u\n#\t\tExpress sampling period:%u\n", sampleRateData.scan_sample_rate, sampleRateData.express_sample_rate);
 	printf("#########################################\n");
 }
 
@@ -134,7 +141,7 @@ ComResult RPLidar::get_samplerate(SampleRateData *sample_rate) {
  * @return result of the communication
  */
 ComResult RPLidar::start_motor() {
-	for(int i=0;i<NUMBER_TRIES-1;i++) {
+	for(int i=0;i<NUMBER_PWM_TRIES-1;i++) {
 		set_pwm(DEFAULT_MOTOR_PWM);
 	}
 	return STATUS_OK;
@@ -148,7 +155,7 @@ ComResult RPLidar::start_motor() {
  */
 ComResult RPLidar::stop_motor() {
 	ComResult status=STATUS_OK;
-	for(int i=0;i<NUMBER_TRIES;i++) {
+	for(int i=0;i<NUMBER_PWM_TRIES;i++) {
 		status=set_pwm(0)==STATUS_OK?STATUS_OK:STATUS_ERROR;
 	}
 	return status;

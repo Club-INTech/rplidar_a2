@@ -1,10 +1,12 @@
 #include "RPLidar.hpp"
 #include <unistd.h>
 #include <cmath>
+#include <iostream>
+#include <iomanip>
 
 using namespace data_wrappers;
 
-
+using namespace std;
 
 int main(int argc, char** argv){
 	/* ************************************

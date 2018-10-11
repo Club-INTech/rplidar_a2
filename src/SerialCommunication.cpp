@@ -1,7 +1,6 @@
 //
 // Created by tic-tac on 10/1/18.
 //
-
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <string.h>
@@ -15,16 +14,16 @@
 using namespace rp_values;
 
 SerialCommunication::SerialCommunication(const char *filePath, speed_t baudrate, int parity) {
-	serial_fd=open(filePath, O_RDWR);
+	serial_fd=open(filePath, O_RDWR);		//Get a file descriptor to the serial device, usually /dev/ttyUSB0
 	if(serial_fd==-1){
 		printf("Error: Serial device not found at %s", filePath);
 		exit(EXIT_FAILURE);
 	}
 	path=std::string(filePath);
-	set_interface_attribs(baudrate, parity); 					//8N1 at 115200
-	set_blocking(true);												//Non Blocking communication
-	setDTR(false);														//DTR wire is used for PWM control
-	memset(data, 0, rp_values::MAX_PAYLOAD);	//Initialize data to 0
+	set_interface_attribs(baudrate, parity); 				//sets up file attributes with termios for serial communication (8N1)
+	set_blocking(true);												//Blocking communication, with timeout
+	setDTR(false);														//DTR disables PWM control of the motor, so it should be disabled
+	memset(data, 0, rp_values::REQUEST_SIZE);	//Initialize output data buffer to 0
 }
 
 
@@ -41,8 +40,8 @@ void SerialCommunication::setDTR(bool enable) {
 
 
 /**
- * Sets the file descriptor interface attributes for Serial communication
- * @param speed : the baudrate(of type speed_t) (usually B115200)
+ * Sets the attributes of a file for Serial communication
+ * @param speed : the baudrate (of type speed_t), usually B115200
  * @param parity : parity of the communication(usually 0)
  * @return
  */
@@ -55,55 +54,53 @@ int SerialCommunication::set_interface_attribs(speed_t speed, int parity) {
 		return -1;
 	}
 
-	//
-	// Input flags - Turn off input processing
-	//
-	// convert break to null byte, no CR to NL translation,
-	// no NL to CR translation, don't mark parity errors or breaks
-	// no input parity check, don't strip high bit off,
-	// no XON/XOFF software flow control
+	/*
+	 Input flags - Turn off input processing
+
+	 convert break to null byte, no CR to NL translation,
+	 no NL to CR translation, don't mark parity errors or breaks
+	 no input parity check, don't strip high bit off,
+	 no XON/XOFF software flow control */
 	tty.c_iflag &=~(IGNBRK | BRKINT | ICRNL | INLCR | PARMRK | INPCK | ISTRIP | IXON);
 
-	//
-	// Output flags - Turn off output processing
-	//
-	// no CR to NL translation, no NL to CR-NL translation,
-	// no NL to CR translation, no column 0 CR suppression,
-	// no Ctrl-D suppression, no fill characters, no case mapping,
-	// no local output processing
-	//
-	// config.c_oflag &= ~(OCRNL | ONLCR | ONLRET |
-	//                     ONOCR | ONOEOT| OFILL | OLCUC | OPOST);
+
+	/*
+	 Output flags - Turn off output processing
+
+	 no CR to NL translation, no NL to CR-NL translation,
+	 no NL to CR translation, no column 0 CR suppression,
+	 no Ctrl-D suppression, no fill characters, no case mapping,
+	 no local output processing
+
+	 config.c_oflag &= ~(OCRNL | ONLCR | ONLRET |
+	                     ONOCR | ONOEOT| OFILL | OLCUC | OPOST); */
 	tty.c_oflag = 0;
 
-	//
-	// No line processing
-	//
-	// echo off, echo newline off, canonical mode off,
-	// extended input processing off, signal chars off
-	//
+	/*
+	 No line processing
+
+	 echo off, echo newline off, canonical mode off,
+	 extended input processing off, signal chars off */
 	tty.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
 
-	//
-	// Turn off character processing
-	//
-	// clear current char size mask, no parity checking,
-	// no output processing, force 8 bit input
-	//
-	tty.c_cflag &= ~(CSIZE | PARENB);
+	/*
+	 Turn off character processing
+
+	 clear current char size mask, no parity checking,
+	 no output processing, force 8 bit input */
+	tty.c_cflag &= ~(CSIZE | (parity?PARENB:0));
 	tty.c_cflag |= CS8;
 
-	//
-	// One input byte is enough to return from read()
-	// Inter-character timer off
-	//
+	/*
+	 One input byte is enough to return from read()
+	 Inter-character timer off */
+
 	tty.c_cc[VMIN]  = 1;
 	tty.c_cc[VTIME] = 0;
 
-	//
-	// Communication speed (simple version, using the predefined
-	// constants)
-	//
+	/*
+	 Communication speed (simple version, using the predefined
+	 constants) */
 	if(cfsetispeed(&tty, speed) < 0 || cfsetospeed(&tty, speed) < 0) {
 		printf("Error: cfsetispeed | cfsetospeed\n");
 		exit(EXIT_FAILURE);
@@ -132,6 +129,7 @@ int SerialCommunication::set_interface_attribs(speed_t speed, int parity) {
 //	tty.c_cflag &= ~CSTOPB;
 //	tty.c_cflag &= ~CRTSCTS;
 
+	//Saves the attributes and applies them to the tty on 'serial_fd'
 	if (tcsetattr (serial_fd, TCSAFLUSH, &tty) < 0)
 	{
 		printf ("error %d from tcsetattr", errno);
@@ -153,10 +151,8 @@ void SerialCommunication::set_blocking(bool should_block) {
 		printf ("error %d from tggetattr", errno);
 		return;
 	}
-
 	tty.c_cc[VMIN]  = should_block ? 1 : 0;
 	tty.c_cc[VTIME] = 5;            	// 0.5 seconds read timeout
-
 	if (tcsetattr (serial_fd, TCSANOW, &tty) != 0)
 		printf ("error %d setting term attributes", errno);
 }
@@ -167,9 +163,9 @@ void SerialCommunication::set_blocking(bool should_block) {
  * @param packet
  */
 ComResult SerialCommunication::send_packet(const RequestPacket &packet) {
-	memset(data, 0, MAX_PAYLOAD);
-	uint8_t size=packet.get_packet(data);
-	ssize_t written=write(serial_fd, data, size);
+	memset(data, 0, REQUEST_SIZE);
+	uint8_t size=packet.get_packet(data);			//Fills data[REQUEST_SIZE] with the bytes of the request packet, and gets the number of bytes to write
+	ssize_t written=write(serial_fd, data, size);	//Tries to write those bytes to serial buffer on serial_fd, and get the amount of bytes written
 	if(written==-1){
 		printf("Error: No Connection to LiDAR on device %s\nQuitting\n", path.c_str());
 		exit(EXIT_FAILURE);
@@ -182,14 +178,14 @@ ComResult SerialCommunication::send_packet(const RequestPacket &packet) {
 }
 
 
+/**
+ * Reads a response descriptor incoming from LiDAR, and selects the size of the next data packets if there are any
+ * @return size of the next incoming data packets (for SCAN, FORCE_SCAN, EXPRESS_SCAN orders)
+ */
 uint32_t SerialCommunication::read_descriptor() {
-	uint8_t read_descriptor[7]={0};
-	ssize_t read_size = read(serial_fd, read_descriptor, 7);
-//	for(uint32_t i=0;i<read_size;i++){
-//		printf("%#02x ", read_descriptor[i]);
-//	}
-//	printf("\n");
-	if(read_size<7){
+	uint8_t read_descriptor[rp_values::DESCRIPTOR_SIZE]={0};
+	ssize_t read_size = read(serial_fd, read_descriptor, 7);	//Reads from the serial_fd buffer, copies it to read_descriptor[7]
+	if(read_size<rp_values::DESCRIPTOR_SIZE){
 		printf("Error: serial descriptor read incomplete: read %d/7 bytes\n", (uint32_t)read_size);
 		return 0; //Return 0, let the user handle what happens
 	}
@@ -201,7 +197,7 @@ uint32_t SerialCommunication::read_descriptor() {
 	for(int i=2;i<5;i++){
 		response_data_len|=read_descriptor[i]<<(i-2);
 	}
-	response_data_len|=read_descriptor[5]&0x3F; // size is 30 bits, not 32: last byte is reduce with a mast 0x00111111
+	response_data_len|=read_descriptor[5]&0x3F; // size is 30 bits, not 32: last byte is reduced with a mask 0x00111111
 	return response_data_len;
 }
 
@@ -220,6 +216,10 @@ uint8_t *SerialCommunication::read_data(uint32_t num_bytes) {
 	return read_data;
 }
 
+/**
+ * Reads one byte of data
+ * @return byte read from serial_fd buffer
+ */
 uint8_t SerialCommunication::read_byte() {
 	uint8_t read_data;
 	ssize_t read_size = read(serial_fd, &read_data, 1);
