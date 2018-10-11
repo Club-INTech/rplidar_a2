@@ -21,7 +21,7 @@ public:
 	rp_values::ComResult stop_motor();
 
 	rp_values::ComResult start_express_scan();
-	rp_values::ComResult read_scan_data(std::vector<uint8_t>& output_data);
+	rp_values::ComResult read_scan_data(std::vector<uint8_t>& output_data, bool to_sync=false);
 	rp_values::ComResult stop_scan();
 };
 

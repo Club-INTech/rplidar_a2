@@ -28,8 +28,10 @@ namespace rp_values{
 	};
 
 	enum ComResult{
+		STATUS_WRONG_FLAG=-3,
+		STATUS_WRONG_CHECKSUM=-2,
 		STATUS_ERROR=-1,
-		STATUS_OK=1
+		STATUS_OK=0
 	};
 
 	enum LidarStatus{

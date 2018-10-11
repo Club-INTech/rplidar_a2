@@ -96,25 +96,31 @@ namespace data_wrappers {
 			return checksum;
 		}
 
-		bool decode_packet_bytes(const std::vector<uint8_t>& raw_bytes) {
-			if(!check_flags_parity(raw_bytes)){
-				return false;
+		rp_values::ComResult decode_packet_bytes(const std::vector<uint8_t>& raw_bytes) {
+			rp_values::ComResult result = check_flags_parity(raw_bytes);
+			if(result!=rp_values::ComResult::STATUS_OK){
+				return result;
 			}
-			start_angle=(((raw_bytes[3]&0x7F)<<8)|(raw_bytes[2]))/ static_cast<float>(64);
-			return true;
+			else {
+				start_angle = (((raw_bytes[3] & 0x7F) << 8) | (raw_bytes[2])) / static_cast<float>(64);
+				return rp_values::ComResult::STATUS_OK;
+			}
 		}
 
-		bool check_flags_parity(const std::vector<uint8_t>& raw_bytes){
+		rp_values::ComResult check_flags_parity(const std::vector<uint8_t>& raw_bytes){
 			if (((raw_bytes[0] >>4) != 0xA) || ((raw_bytes[1] >> 4) != 0x5)) {
 				printf("WRONG FLAG 0x%02X 0x%02X\n", raw_bytes[0], raw_bytes[1]);
-				return false; //Wrong flag: ignore the value
+				return rp_values::ComResult::STATUS_WRONG_FLAG;
 			}
 			uint8_t checksum_received = static_cast<uint8_t>((raw_bytes[0] & 0x0F) | ((raw_bytes[1] & 0x0F) << 4));
 			uint8_t checksum_computed = scan_data_checksum(raw_bytes);
 			if(checksum_computed!=checksum_received){
-				printf("WRONG FLAG\n");
+				printf("WRONG CHECKSUM\n");
+				return rp_values::ComResult::STATUS_WRONG_CHECKSUM;
 			}
-			return checksum_received == checksum_computed;
+			else{
+				return rp_values::ComResult::STATUS_OK;
+			}
 		}
 	};
 }

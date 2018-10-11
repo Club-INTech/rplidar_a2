@@ -140,8 +140,23 @@ ComResult RPLidar::start_express_scan() {
 }
 
 
-rp_values::ComResult RPLidar::read_scan_data(std::vector<uint8_t> &output_data) {
-	uint8_t* read_data = port.read_data(DATA_SIZE_EXPRESS_SCAN);
+rp_values::ComResult RPLidar::read_scan_data(std::vector<uint8_t> &output_data, bool to_sync) {
+	uint8_t* read_data= nullptr;
+	uint8_t n_bytes_to_read=DATA_SIZE_EXPRESS_SCAN;
+	if(to_sync){
+		read_data=port.read_data(1);
+		while(((read_data[0] >>4) != 0xA)){
+			delete[] read_data;
+			read_data=port.read_data(1);
+			if(read_data==nullptr){
+				return ComResult::STATUS_ERROR;
+			}
+		}
+		output_data.push_back(read_data[0]);
+		delete[] read_data;
+		n_bytes_to_read--;
+	}
+	read_data = port.read_data(n_bytes_to_read);
 	if(read_data==nullptr){
 		return ComResult::STATUS_ERROR;
 	}

@@ -12,6 +12,7 @@
 class SerialCommunication {
 public:
 	int serial_fd;
+	std::string path;
 	uint8_t data[9];
 	void setDTR(bool enable);
 	int set_interface_attribs(int speed, int parity);

@@ -16,6 +16,7 @@ using namespace rp_values;
 
 SerialCommunication::SerialCommunication(const char *filePath, speed_t baudrate, int parity) {
 	serial_fd=open(filePath, O_RDWR);
+	path=std::string(filePath);
 	set_interface_attribs(baudrate, parity); 					//8N1 at 115200
 	set_blocking(true);												//Non Blocking communication
 	setDTR(false);														//DTR wire is used for PWM control
@@ -112,7 +113,7 @@ ComResult SerialCommunication::send_packet(const RequestPacket &packet) {
 	uint8_t size=packet.get_packet(data);
 	ssize_t written=write(serial_fd, data, size);
 	if(written==-1){
-		printf("Error: No Connection to LiDAR, quitting\n");
+		printf("Error: No Connection to LiDAR on device %s\nQuitting\n", path.c_str());
 		exit(EXIT_FAILURE);
 	}
 	if(written<size){
