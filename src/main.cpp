@@ -7,6 +7,7 @@ using namespace data_wrappers;
 
 
 int main(int argc, char** argv){
+
 	/* ************************************
 	*    			SETUP PROGRAM  				 *
 	**************************************/
@@ -25,20 +26,17 @@ int main(int argc, char** argv){
 	 *                   START SCAN                    *
 	 **************************************/
 	lidar.start_motor();
+	sleep(2);	//Let motor spin
 	lidar.start_express_scan();
-//	lidar.start_scan();
 
 	/* ************************************
  	*                   TEST MAIN LOOP             *
  	**************************************/
 	lidar.process_express_scans();
-//	lidar.process_regular_scans();
 
-
-	/*
-	 * STOP ALL
-	 */
-	printf("Stopping LiDAR\n");
+	/* ***********************************
+	 *                       STOP ALL                    *
+	 *************************************/
 	lidar.stop_scan();
 	lidar.stop_motor();
 	return 0;

@@ -1,5 +1,8 @@
 #include "RPLidar.hpp"
 #include <csignal>
+#include <RPLidar.hpp>
+#include <cmath>
+
 #include "ReturnDataWrappers.hpp"
 
 using namespace rp_values;
@@ -28,21 +31,21 @@ RPLidar::RPLidar(const char *serial_path) : port(serial_path, B115200, 0){
 void RPLidar::print_status(){
 	InfoData infoData;
 	get_info(&infoData);
-	printf("###########################################\n");
-	printf("RPLidar Model: A%dM%d\n", infoData.model>>4, infoData.model&0x0F);
-	printf("Firmware version: 0x%02X%02X\n", infoData.firmware_major, infoData.firmware_minor);
+	printf("#########################################\n");
+	printf("#\t\tRPLidar Model: A%dM%d\t\t\t\t#\n", infoData.model>>4, infoData.model&0x0F);
+	printf("#\t\tFirmware version: 0x%02X%02X\t\t#\n", infoData.firmware_major, infoData.firmware_minor);
 
 	HealthData healthData;
 	get_health(&healthData);
-	printf("Lidar Health: %s\n", healthData.status==rp_values::LidarStatus::LIDAR_OK?"OK":(healthData.status==rp_values::LidarStatus::LIDAR_WARNING?"WARNING":"ERROR"));
+	printf("#\t\tLidar Health: %s\t\t\t\t#\n", healthData.status==rp_values::LidarStatus::LIDAR_OK?"OK":(healthData.status==rp_values::LidarStatus::LIDAR_WARNING?"WARNING":"ERROR"));
 	if(healthData.status>0){
 		printf("Warning/Error code: %u\n", healthData.error_code);
 	}
 
 	SampleRateData sampleRateData;
 	get_samplerate(&sampleRateData);
-	printf("Scan sampling period(us):%u\nExpress sampling period:%u\n", sampleRateData.scan_sample_rate, sampleRateData.express_sample_rate);
-	printf("###########################################\n");
+	printf("#\t\tScan sampling period(us):%u\t#\n#\t\tExpress sampling period:%u\t\t#\n", sampleRateData.scan_sample_rate, sampleRateData.express_sample_rate);
+	printf("#########################################\n");
 }
 
 
@@ -195,36 +198,68 @@ ComResult RPLidar::start_scan() {
 
 }
 
+float AngleDiff(uint16_t angle1, uint16_t angle2){
+	if(angle2>=angle1){
+		return angle2-angle1;
+	}
+	return 360+angle2-angle1;
+}
+
+data_wrappers::Measurement
+RPLidar::get_next_measurement(data_wrappers::ExpressScanPacket &scan_packet, float next_angle, uint8_t measurement_id) {
+	uint16_t distance=scan_packet.distances[measurement_id];
+	float angle=scan_packet.start_angle+(fmodf(next_angle-scan_packet.start_angle,360.0f)/32.0f)*measurement_id-scan_packet.d_angles[measurement_id];
+	return {distance, angle};
+}
+
 void RPLidar::process_express_scans() {
 	bool wrong_flag=false;
 	std::vector<uint8_t> read_buffer;
 	ExpressScanPacket packet_current;
 	ExpressScanPacket packet_next;
-
+	uint8_t measurement_id=32;
 	// Need two packets for angle computing: current and last (cf formula in p23 of com. protocol documentation)
 	double start_time = msecs();
 	while(running) {
-		read_buffer.clear();
-		read_scan_data(read_buffer, DATA_SIZE_EXPRESS_SCAN, wrong_flag);
-		wrong_flag=false;
+		if(measurement_id==32) {
+			measurement_id = 0;
+			if (packet_next.distances.empty()) {
+				read_buffer.clear();
+				read_scan_data(read_buffer, DATA_SIZE_EXPRESS_SCAN, wrong_flag);
+				rp_values::ComResult result = packet_next.decode_packet_bytes(read_buffer);
+				if (result == rp_values::ComResult::STATUS_WRONG_FLAG) {
+					printf("WRONG FLAGS, WILL SYNC BACK\n");
+					wrong_flag = true;
+					continue; //Couldn't decode an Express packet (wrong flags or checksum)
+				} else if (result != rp_values::ComResult::STATUS_OK) {
+					printf("WRONG CHECKSUM OR COM ERROR, IGNORE PACKET\n");
+					continue;
+				}
+			}
+			packet_current = packet_next;
+			read_buffer.clear();
+			read_scan_data(read_buffer, DATA_SIZE_EXPRESS_SCAN, wrong_flag);
+			rp_values::ComResult result = packet_next.decode_packet_bytes(read_buffer);
+			if (result == rp_values::ComResult::STATUS_WRONG_FLAG) {
+				printf("WRONG FLAGS, WILL SYNC BACK\n");
+				wrong_flag = true;
+				continue; //Couldn't decode an Express packet (wrong flags or checksum)
+			} else if (result != rp_values::ComResult::STATUS_OK) {
+				printf("WRONG CHECKSUM OR COM ERROR, IGNORE PACKET\n");
+				continue;
+			}
+			wrong_flag = false;
+		}
 //		for(uint8_t data_byte : read_buffer){
 //			printf("0x%02X ",data_byte);
 //		}
 //		printf("\n");
-		rp_values::ComResult result=packet_current.decode_packet_bytes(read_buffer);
-		if(result == rp_values::ComResult::STATUS_WRONG_FLAG){
-			printf("WRONG FLAGS, WILL SYNC BACK\n");
-			wrong_flag=true;
-			continue; //Couldn't decode an Express packet (wrong flags or checksum)
-		}
-		else if(result != rp_values::ComResult::STATUS_OK){
-			printf("WRONG CHECKSUM OR COM ERROR, IGNORE PACKET\n");
-			continue;
-		}
-
+		measurement_id++;
+		Measurement measurement=get_next_measurement(packet_current, packet_next.start_angle, measurement_id);
 		double duration= msecs()-start_time;
 		start_time= msecs();
 		printf("New Packet: Start_Angle=%f\n", packet_current.start_angle);
+		printf("d %u ang %f\n", measurement.distance, measurement.angle);
 		printf("Delta_t = %dms\n", static_cast<uint32_t>(duration));
 	}
 }
@@ -254,6 +289,3 @@ void RPLidar::process_regular_scans() {
 		printf("Delta_t = %dms\n", static_cast<uint32_t>(duration));
 	}
 }
-
-
-
