@@ -1,6 +1,7 @@
 #include <csignal>
 #include <cmath>
 #include <iostream>
+#include <iomanip>
 #include "ReturnDataWrappers.hpp"
 #include "RPLidar.hpp"
 
@@ -35,17 +36,20 @@ RPLidar::RPLidar(const char *serial_path) : port(serial_path, B115200, 0){
 }
 
 void RPLidar::print_status(){
+	using namespace std;
+
 	InfoData infoData;
 	get_info(&infoData);
-	std::cout<<"#########################################\n";
-	
-	printf("#########################################\n");
-	printf("#\t\tRPLidar Model: A%dM%d\n", infoData.model>>4, infoData.model&0x0F);
-	printf("#\t\tFirmware version: 0x%02X%02X\n", infoData.firmware_major, infoData.firmware_minor);
+	cout<<"#######################################"<<endl;
+	cout<<left<<setw(6)<<"#"<<left<<setw(32)<<("RPLidar Model: A"+to_string(infoData.model>>4)+"M"+to_string(infoData.model&0x0F));
+	cout<<right<<"#"<<endl;
+	cout<<left<<setw(6)<<"#"<<left<<setw(32)<<("Firmware version: "+to_string(infoData.firmware_major)+to_string(infoData.firmware_minor));
+	cout<<right<<"#"<<endl;
 
 	HealthData healthData;
 	get_health(&healthData);
-	printf("#\t\tLidar Health: %s\n", healthData.status==rp_values::LidarStatus::LIDAR_OK?"OK":(healthData.status==rp_values::LidarStatus::LIDAR_WARNING?"WARNING":"ERROR"));
+	cout<<left<<setw(6)<<"#"<<left<<setw(32)<<"Lidar Health: "+string(healthData.status==rp_values::LidarStatus::LIDAR_OK?"OK":(healthData.status==rp_values::LidarStatus::LIDAR_WARNING?"WARNING":"ERROR"));
+	cout<<right<<"#"<<endl;
 	if(healthData.status>0){
 		printf("Warning/Error code: %u\n", healthData.error_code);
 	}
@@ -53,13 +57,16 @@ void RPLidar::print_status(){
 		printf("WARNING: LiDAR in warning state, may deteriorate\n");
 	}
 	if(healthData.status==rp_values::LidarStatus::LIDAR_ERROR){
-		printf("WARNING: LiDAR in critical state\n");
+		printf("ERROR: LiDAR in critical state\n");
 	}
 
 	SampleRateData sampleRateData;
 	get_samplerate(&sampleRateData);
-	printf("#\t\tScan sampling period(us):%u\n#\t\tExpress sampling period:%u\n", sampleRateData.scan_sample_rate, sampleRateData.express_sample_rate);
-	printf("#########################################\n");
+	cout<<left<<setw(6)<<"#"<<left<<setw(32)<<("Scan sampling period:"+to_string(sampleRateData.scan_sample_rate)+"us");
+	cout<<right<<"#"<<endl;
+	cout<<left<<setw(6)<<"#"<<left<<setw(32)<<("Express sampling period:"+to_string(sampleRateData.express_sample_rate)+"us");
+	cout<<right<<"#"<<endl;
+	cout<<"#######################################"<<endl;
 }
 
 

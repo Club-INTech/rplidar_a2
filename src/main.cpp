@@ -9,6 +9,9 @@ using namespace data_wrappers;
 using namespace std;
 
 int main(int argc, char** argv){
+
+
+	return 0;
 	/* ************************************
 	*    SETUP LIDAR & CHECK STATUS  *
 	**************************************/
