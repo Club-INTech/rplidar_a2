@@ -198,7 +198,7 @@ ComResult RPLidar::start_scan() {
 
 }
 
-float AngleDiff(uint16_t angle1, uint16_t angle2){
+float AngleDiff(float angle1, float angle2){
 	if(angle2>=angle1){
 		return angle2-angle1;
 	}
@@ -207,8 +207,8 @@ float AngleDiff(uint16_t angle1, uint16_t angle2){
 
 data_wrappers::Measurement
 RPLidar::get_next_measurement(data_wrappers::ExpressScanPacket &scan_packet, float next_angle, uint8_t measurement_id) {
-	uint16_t distance=scan_packet.distances[measurement_id];
-	float angle=scan_packet.start_angle+(fmodf(next_angle-scan_packet.start_angle,360.0f)/32.0f)*measurement_id-scan_packet.d_angles[measurement_id];
+	uint16_t distance=scan_packet.distances[measurement_id-1];
+	float angle=fmodf(scan_packet.start_angle+(AngleDiff(scan_packet.start_angle, next_angle)/32.0f)*measurement_id-scan_packet.d_angles[measurement_id-1], 360.0f);
 	return {distance, angle};
 }
 
@@ -258,7 +258,6 @@ void RPLidar::process_express_scans() {
 		Measurement measurement=get_next_measurement(packet_current, packet_next.start_angle, measurement_id);
 		double duration= msecs()-start_time;
 		start_time= msecs();
-		printf("New Packet: Start_Angle=%f\n", packet_current.start_angle);
 		printf("d %u ang %f\n", measurement.distance, measurement.angle);
 		printf("Delta_t = %dms\n", static_cast<uint32_t>(duration));
 	}
