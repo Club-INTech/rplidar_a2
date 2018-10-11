@@ -111,8 +111,12 @@ ComResult SerialCommunication::send_packet(const RequestPacket &packet) {
 	memset(data, 0, MAX_PAYLOAD);
 	uint8_t size=packet.get_packet(data);
 	ssize_t written=write(serial_fd, data, size);
+	if(written==-1){
+		printf("Error: No Connection to LiDAR, quitting\n");
+		exit(EXIT_FAILURE);
+	}
 	if(written<size){
-		perror("Error: serial write incomplete:");
+		perror("Error: serial write incomplete:\n");
 		return STATUS_ERROR;	//Couldn't send data completely
 	}
 	return STATUS_OK; //All went well, nothing to return

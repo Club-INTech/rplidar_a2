@@ -36,7 +36,6 @@ int main(int argc, char** argv){
 	/* ************************************
  	*                   TEST MAIN LOOP             *
  	**************************************/
-	bool wrong=false;
 	std::vector<uint8_t> read_buffer;
 	ExpressPacket packet_current;
 	ExpressPacket packet_next;
@@ -51,7 +50,7 @@ int main(int argc, char** argv){
 //		}
 //		printf("\n");
 		if(!packet_current.decode_packet_bytes(read_buffer)){
-			continue;
+			continue; //Couldn't decode an Express packet (wrong flags or checksum)
 		}
 
 		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
