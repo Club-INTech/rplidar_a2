@@ -8,14 +8,21 @@
 using namespace rp_values;
 using namespace data_wrappers;
 
-bool running=true;
 
+bool running=true; //Variable to manage stops when signals are received
+
+
+/**
+ * Gives the current epoch, in milliseconds
+ * @return guess what
+ */
 double msecs()
 {
 	struct timeval tv;
 	gettimeofday(&tv, 0);
 	return (double) tv.tv_usec / 1000 + tv.tv_sec * 1000;
 }
+
 void signal_handler(int signo){
 	if(signo==SIGTERM || signo==SIGINT)
 		running = false;
@@ -75,6 +82,12 @@ ComResult RPLidar::send_packet(OrderByte order, const std::vector<uint8_t> &payl
 	return STATUS_OK;
 }
 
+
+/**
+ * Fills a health data struct with required information from LiDAR
+ * @param health_data
+ * @return
+ */
 ComResult RPLidar::get_health(HealthData *health_data) {
 	ComResult status=send_packet(GET_HEALTH);
 	uint32_t data_len= port.read_descriptor();
@@ -84,6 +97,12 @@ ComResult RPLidar::get_health(HealthData *health_data) {
 	return status;
 }
 
+
+/**
+ * Fills a LiDAR information data struct with required information from LiDAR
+ * @param info_data
+ * @return
+ */
 rp_values::ComResult RPLidar::get_info(data_wrappers::InfoData *info_data) {
 	ComResult status=send_packet(GET_INFO);
 	uint32_t data_len= port.read_descriptor();
@@ -93,8 +112,9 @@ rp_values::ComResult RPLidar::get_info(data_wrappers::InfoData *info_data) {
 	return status;
 }
 
+
 /**
- * Asks the sampling rate to the LiDAR
+ * Fills a sample rate data struct with required information from LiDAR
  * @param sample_rate for express scans (it is actually the period un us)
  * @return result of the communication
  */
@@ -107,6 +127,7 @@ ComResult RPLidar::get_samplerate(SampleRateData *sample_rate) {
 	return STATUS_OK;
 }
 
+
 /**
  * Requests the start of the motor to the control module
  * As we do not have any way of knowing if it worked, we have to spam a bit.
@@ -118,6 +139,7 @@ ComResult RPLidar::start_motor() {
 	}
 	return STATUS_OK;
 }
+
 
 /**
  * Requests a stop of the motor to the control module
@@ -132,6 +154,7 @@ ComResult RPLidar::stop_motor() {
 	return status;
 }
 
+
 /**
  * Send a PWM motor command for speed control
  * @param pwm between 0 and 1023 (inclusive)
@@ -145,13 +168,13 @@ ComResult RPLidar::set_pwm(uint16_t pwm) {
 	return send_packet(SET_PWM, {bytes[0],bytes[1]});
 }
 
+
 /**
  * Requests the start of an express scan.
  * A response descriptor should then be read for data packets length,
  * then the data should be read
  * @return result of the communication
  */
-
 ComResult RPLidar::start_express_scan() {
 	send_packet(EXPRESS_SCAN, {0,0,0,0,0});
 	uint32_t data_size = port.read_descriptor();
@@ -159,6 +182,13 @@ ComResult RPLidar::start_express_scan() {
 }
 
 
+/**
+ * Reads express scan packet into a vector<uint8_t>
+ * @param output_data : vector to fill
+ * @param size : number of bytes to read
+ * @param to_sync : in case of loss of synchronization
+ * @return result of the communication
+ */
 rp_values::ComResult RPLidar::read_scan_data(std::vector<uint8_t> &output_data, uint8_t size, bool to_sync) {
 	uint8_t* read_data= nullptr;
 	uint8_t n_bytes_to_read=size;
@@ -187,10 +217,19 @@ rp_values::ComResult RPLidar::read_scan_data(std::vector<uint8_t> &output_data, 
 }
 
 
+/**
+ * Requests a stop of any scan active
+ * @return result of the communication
+ */
 rp_values::ComResult RPLidar::stop_scan() {
 	return send_packet(STOP);
 }
 
+
+/**
+ * Requests the start of a regular scan
+ * @return result of the communication
+ */
 ComResult RPLidar::start_scan() {
 	send_packet(SCAN);
 	uint32_t data_size = port.read_descriptor();
@@ -198,6 +237,13 @@ ComResult RPLidar::start_scan() {
 
 }
 
+
+/**
+ * Function used to compute angle difference (according to doc)
+ * @param angle1 : current packet angle
+ * @param angle2 : next packet angle
+ * @return result of the communication
+ */
 float AngleDiff(float angle1, float angle2){
 	if(angle2>=angle1){
 		return angle2-angle1;
@@ -205,13 +251,24 @@ float AngleDiff(float angle1, float angle2){
 	return 360+angle2-angle1;
 }
 
-data_wrappers::Measurement
-RPLidar::get_next_measurement(data_wrappers::ExpressScanPacket &scan_packet, float next_angle, uint8_t measurement_id) {
+
+/**
+ * Gets the "measurement_id"th measurement in the current packet, needs the next packet also
+ * @param scan_packet : current express packet
+ * @param next_angle : start angle of next express packet
+ * @param measurement_id : id of the measurement needed
+ * @return Measurement struct (includes distance and angle of the measurement)
+ */
+data_wrappers::Measurement RPLidar::get_next_measurement(data_wrappers::ExpressScanPacket &scan_packet, float next_angle, uint8_t measurement_id) {
 	uint16_t distance=scan_packet.distances[measurement_id-1];
 	float angle=fmodf(scan_packet.start_angle+(AngleDiff(scan_packet.start_angle, next_angle)/32.0f)*measurement_id-scan_packet.d_angles[measurement_id-1], 360.0f);
 	return {distance, angle};
 }
 
+
+/**
+ * Main Loop for processing express scan data
+ */
 void RPLidar::process_express_scans() {
 	bool wrong_flag=false;
 	std::vector<uint8_t> read_buffer;
@@ -263,6 +320,10 @@ void RPLidar::process_express_scans() {
 	}
 }
 
+
+/**
+ * Main Loop for processing regular scan data
+ */
 void RPLidar::process_regular_scans() {
 	std::vector<uint8_t> read_buffer;
 	ScanPacket packet_current;
