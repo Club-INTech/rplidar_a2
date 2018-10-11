@@ -109,13 +109,11 @@ namespace data_wrappers {
 
 		rp_values::ComResult check_flags_parity(const std::vector<uint8_t>& raw_bytes){
 			if (((raw_bytes[0] >>4) != 0xA) || ((raw_bytes[1] >> 4) != 0x5)) {
-				printf("WRONG FLAG 0x%02X 0x%02X\n", raw_bytes[0], raw_bytes[1]);
 				return rp_values::ComResult::STATUS_WRONG_FLAG;
 			}
 			uint8_t checksum_received = static_cast<uint8_t>((raw_bytes[0] & 0x0F) | ((raw_bytes[1] & 0x0F) << 4));
 			uint8_t checksum_computed = scan_data_checksum(raw_bytes);
 			if(checksum_computed!=checksum_received){
-				printf("WRONG CHECKSUM\n");
 				return rp_values::ComResult::STATUS_WRONG_CHECKSUM;
 			}
 			else{
