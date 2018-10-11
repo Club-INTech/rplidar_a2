@@ -82,7 +82,46 @@ namespace data_wrappers {
 		}
 	};
 
-	struct ExpressPacket {
+
+	struct ScanPacket{
+		uint8_t quality=0;
+		uint8_t new_turn=0;
+		float angle=0;
+		uint16_t distance=0;
+
+		rp_values::ComResult check_C_bit(const std::vector<uint8_t>& scan_data)
+		{
+			if((scan_data[1]&1)==0 && ((scan_data[0]&1) == (scan_data[0]&2)>>1)) //if bit C is not 1 and if bit S and /S are not different
+			{
+				printf("BIT C %d\n", scan_data[1]&1);
+				return rp_values::ComResult::STATUS_WRONG_CHECKSUM;
+			}
+			return rp_values::ComResult::STATUS_OK;
+		}
+
+		rp_values::ComResult decode_packet_bytes(const std::vector<uint8_t>& scan_data){
+			if(check_C_bit(scan_data)==rp_values::ComResult::STATUS_WRONG_CHECKSUM){
+				printf("ERROR: CHECKSUM WRONG ");
+				printf("%02X %02X\n",scan_data[0], scan_data[1]);
+				return rp_values::ComResult::STATUS_WRONG_CHECKSUM;
+			}
+			angle=(((scan_data[1]>>1)&0x7F)|(scan_data[2]<<7))/static_cast<float>(64);
+			distance=static_cast<uint16_t>(((scan_data[4]<<8) | (scan_data[3]))/ static_cast<float>(4));
+			quality= (scan_data[0]>>2)&static_cast<uint8_t>(0x3F);
+			return rp_values::ComResult::STATUS_OK;
+		}
+	};
+
+	struct Measurement{
+		float angle=0;
+		uint16_t distance=0;
+		Measurement(uint16_t d, float a){
+			angle=a;
+			distance=d;
+		}
+	};
+
+	struct ExpressScanPacket {
 		std::vector<uint16_t> distances;        //measurement distance for each value in the packet
 		std::vector<float> d_angles;            //delta angle for each value in the packet
 		float start_angle=0;                                //Start angle of the packet
@@ -101,10 +140,29 @@ namespace data_wrappers {
 			if(result!=rp_values::ComResult::STATUS_OK){
 				return result;
 			}
-			else {
-				start_angle = (((raw_bytes[3] & 0x7F) << 8) | (raw_bytes[2])) / static_cast<float>(64);
-				return rp_values::ComResult::STATUS_OK;
+			distances.clear();
+			d_angles.clear();
+			start_angle = (((raw_bytes[3] & 0x7F) << 8) | (raw_bytes[2])) / static_cast<float>(64);
+
+			for(uint8_t i=4;i<80;i+=5){
+				uint16_t d1= static_cast<uint16_t>(((raw_bytes[i]>>2)&0x3F)|(raw_bytes[i+1]<<6));
+				uint16_t d2= static_cast<uint16_t>(((raw_bytes[i+2]>>2)&0x3F)|(raw_bytes[i+3]<<6));
+				float delta_angle1=((raw_bytes[i+4]&0x0F)|((raw_bytes[i]&1)<<4))/ static_cast<float>(8);
+				delta_angle1*=((raw_bytes[i]&2)>>1)==0?1:-1;
+				float delta_angle2=(((raw_bytes[i+4]>>4)&0x0F)|((raw_bytes[i+2]&1)<<4))/ static_cast<float>(8);
+				delta_angle2*=((raw_bytes[i+2]&2)>>1)==0?1:-1;
+				distances.push_back(d1);
+				distances.push_back(d2);
+//				printf("d1 %d d2 %d \n", d1, d2);
+//				printf("da1 %f da2 %f \n", delta_angle1, delta_angle2);
+				d_angles.push_back(delta_angle1);
+				d_angles.push_back(delta_angle2);
 			}
+			return rp_values::ComResult::STATUS_OK;
+		}
+
+		void next_measurement(){
+
 		}
 
 		rp_values::ComResult check_flags_parity(const std::vector<uint8_t>& raw_bytes){

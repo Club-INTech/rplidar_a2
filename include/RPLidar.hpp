@@ -3,7 +3,7 @@
 
 #include "SerialCommunication.hpp"
 #include "ReturnDataWrappers.hpp"
-
+#include <sys/time.h>
 
 class RPLidar {
 public:
@@ -21,8 +21,14 @@ public:
 	rp_values::ComResult stop_motor();
 
 	rp_values::ComResult start_express_scan();
-	rp_values::ComResult read_scan_data(std::vector<uint8_t>& output_data, bool to_sync=false);
+	rp_values::ComResult read_scan_data(std::vector<uint8_t> &output_data, uint8_t size, bool to_sync = false);
 	rp_values::ComResult stop_scan();
+
+	rp_values::ComResult start_scan();
+
+	void process_express_scans();
+
+	void process_regular_scans();
 };
 
 #endif //RPLIDAR_A2_LIDAR_HPP

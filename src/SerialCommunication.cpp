@@ -16,6 +16,10 @@ using namespace rp_values;
 
 SerialCommunication::SerialCommunication(const char *filePath, speed_t baudrate, int parity) {
 	serial_fd=open(filePath, O_RDWR);
+	if(serial_fd==-1){
+		printf("Error: Serial device not found at %s", filePath);
+		exit(EXIT_FAILURE);
+	}
 	path=std::string(filePath);
 	set_interface_attribs(baudrate, parity); 					//8N1 at 115200
 	set_blocking(true);												//Non Blocking communication
@@ -50,19 +54,18 @@ int SerialCommunication::set_interface_attribs(int speed, int parity) {
 		perror ("error from tcgetattr");
 		return -1;
 	}
-
 	cfsetospeed (&tty, speed);
 	cfsetispeed (&tty, speed);
 
 	tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;     // 8-bit chars
 	// disable IGNBRK for mismatched speed tests; otherwise receive break
 	// as \000 chars
-	tty.c_iflag &= ~IGNBRK;         // ignore break signal
+		tty.c_iflag &= ~IGNBRK;         // ignore break signal
 	tty.c_lflag = 0;                // no signaling chars, no echo,
 	// no canonical processing
 	tty.c_oflag = 0;                // no remapping, no delays
 	tty.c_cc[VMIN]  = 0;            // read doesn't block
-	tty.c_cc[VTIME] = 10;            // 0.5 seconds read timeout
+	tty.c_cc[VTIME] = 5;            // 0.5 seconds read timeout
 
 	tty.c_iflag &= ~(IXON | IXOFF | IXANY); // shut off xon/xoff ctrl
 
@@ -97,7 +100,7 @@ void SerialCommunication::set_blocking(bool should_block) {
 	}
 
 	tty.c_cc[VMIN]  = should_block ? 1 : 0;
-	tty.c_cc[VTIME] = 2;            	// 0.5 seconds read timeout
+	tty.c_cc[VTIME] = 5;            	// 0.5 seconds read timeout
 
 	if (tcsetattr (serial_fd, TCSANOW, &tty) != 0)
 		printf ("error %d setting term attributes", errno);

@@ -14,6 +14,7 @@ namespace rp_values{
 
 	static constexpr uint8_t MAX_PAYLOAD=9;
 	static constexpr uint8_t DATA_SIZE_EXPRESS_SCAN=84;
+	static constexpr uint8_t DATA_SIZE_SCAN=5;
 	static constexpr uint16_t DEFAULT_MOTOR_PWM=660;
 	enum OrderByte{
 		STOP 							= (uint8_t) 0x25,
