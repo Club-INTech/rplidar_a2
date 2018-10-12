@@ -37,36 +37,38 @@ RPLidar::RPLidar(const char *serial_path) : port(serial_path, B115200, 0){
 
 void RPLidar::print_status(){
 	using namespace std;
-
+	//Get data
 	InfoData infoData;
 	get_info(&infoData);
-	cout<<"#######################################"<<endl;
-	cout<<left<<setw(6)<<"#"<<left<<setw(32)<<("RPLidar Model: A"+to_string(infoData.model>>4)+"M"+to_string(infoData.model&0x0F));
-	cout<<right<<"#"<<endl;
-	cout<<left<<setw(6)<<"#"<<left<<setw(32)<<("Firmware version: "+to_string(infoData.firmware_major)+to_string(infoData.firmware_minor));
-	cout<<right<<"#"<<endl;
-
 	HealthData healthData;
 	get_health(&healthData);
-	cout<<left<<setw(6)<<"#"<<left<<setw(32)<<"Lidar Health: "+string(healthData.status==rp_values::LidarStatus::LIDAR_OK?"OK":(healthData.status==rp_values::LidarStatus::LIDAR_WARNING?"WARNING":"ERROR"));
-	cout<<right<<"#"<<endl;
-	if(healthData.status>0){
-		printf("Warning/Error code: %u\n", healthData.error_code);
-	}
-	if(healthData.status==rp_values::LidarStatus::LIDAR_WARNING){
-		printf("WARNING: LiDAR in warning state, may deteriorate\n");
-	}
-	if(healthData.status==rp_values::LidarStatus::LIDAR_ERROR){
-		printf("ERROR: LiDAR in critical state\n");
-	}
-
 	SampleRateData sampleRateData;
 	get_samplerate(&sampleRateData);
-	cout<<left<<setw(6)<<"#"<<left<<setw(32)<<("Scan sampling period:"+to_string(sampleRateData.scan_sample_rate)+"us");
+
+
+	cout<<"#######################################"<<endl;
+	cout<<left<<setw(3)<<"#"<<left<<setw(27)<<"RPLidar Model:"<<setw(8)<<"A"+to_string(infoData.model>>4)+"M"+to_string(infoData.model&0x0F);
 	cout<<right<<"#"<<endl;
-	cout<<left<<setw(6)<<"#"<<left<<setw(32)<<("Express sampling period:"+to_string(sampleRateData.express_sample_rate)+"us");
+	cout<<left<<setw(3)<<"#"<<left<<setw(27)<<"Firmware version: "<<setw(8)<<to_string(infoData.firmware_major)+to_string(infoData.firmware_minor);
+	cout<<right<<"#"<<endl;
+	cout<<left<<setw(3)<<"#"<<left<<setw(27)<<"Lidar Health: "<<setw(8)<<string(healthData.status==rp_values::LidarStatus::LIDAR_OK?"OK":(healthData.status==rp_values::LidarStatus::LIDAR_WARNING?"WARNING":"ERROR"));
+	cout<<right<<"#"<<endl;
+	cout<<left<<setw(3)<<"#"<<left<<setw(27)<<("Scan sampling period:")<<setw(8)<<to_string(sampleRateData.scan_sample_rate)+"us";
+	cout<<right<<"#"<<endl;
+	cout<<left<<setw(3)<<"#"<<left<<setw(27)<<("Express sampling period:")<<setw(8)<<to_string(sampleRateData.express_sample_rate)+"us";
 	cout<<right<<"#"<<endl;
 	cout<<"#######################################"<<endl;
+
+	//Warnings
+	if(healthData.status<0){
+		cout<<"Warning/Error code:"<<healthData.error_code<<endl;
+	}
+	if(healthData.status==rp_values::LidarStatus::LIDAR_WARNING){
+		cout<<"WARNING: LiDAR in warning state, may deteriorate"<<endl;
+	}
+	if(healthData.status==rp_values::LidarStatus::LIDAR_ERROR){
+		cout<<"ERROR: LiDAR in critical state"<<endl;
+	}
 }
 
 
@@ -204,6 +206,7 @@ ComResult RPLidar::start_express_scan() {
  * @return result of the communication
  */
 rp_values::ComResult RPLidar::read_scan_data(std::vector<uint8_t> &output_data, uint8_t size, bool to_sync) {
+	output_data.clear();
 	uint8_t* read_data= nullptr;
 	uint8_t n_bytes_to_read=size;
 	if(to_sync) {
@@ -284,20 +287,21 @@ data_wrappers::Measurement RPLidar::get_next_measurement(data_wrappers::ExpressS
  * Main Loop for processing express scan data
  */
 void RPLidar::process_express_scans() {
-	bool wrong_flag=false;
-	std::vector<uint8_t> read_buffer;
-	ExpressScanPacket packet_current;
-	ExpressScanPacket packet_next;
-	uint8_t measurement_id=32;
-	// Need two packets for angle computing: current and last (cf formula in p23 of com. protocol documentation)
+	bool wrong_flag=false;						//For resynchronization when wrong flags
+	std::vector<uint8_t> read_buffer;		//input buffer
+	ExpressScanPacket packet_current;	//Current express packet data
+	ExpressScanPacket packet_next;		//Next express packet data(formula in com. protocol datasheet needs two consecutive scans, cf p23)
+	uint8_t measurement_id=32;				//To go through the 32 measurements in each express packet
 	double start_time = msecs();
+
 	while(running) {
-		if(measurement_id==32) {
+		if(measurement_id==32) {	//If we need to restart a new express packet decoding
 			measurement_id = 0;
-			if (packet_next.distances.empty()) {
-				read_buffer.clear();
+			if (packet_next.distances.empty()) {	//If there is no next packet (begginning, we only have one packet)
 				read_scan_data(read_buffer, DATA_SIZE_EXPRESS_SCAN, wrong_flag);
 				rp_values::ComResult result = packet_next.decode_packet_bytes(read_buffer);
+
+				//Error handling
 				if (result == rp_values::ComResult::STATUS_WRONG_FLAG) {
 					printf("WRONG FLAGS, WILL SYNC BACK\n");
 					wrong_flag = true;
@@ -307,10 +311,10 @@ void RPLidar::process_express_scans() {
 					continue;
 				}
 			}
-			packet_current = packet_next;
-			read_buffer.clear();
+			packet_current = packet_next;	//We finished a packet, we go to the next
 			read_scan_data(read_buffer, DATA_SIZE_EXPRESS_SCAN, wrong_flag);
 			rp_values::ComResult result = packet_next.decode_packet_bytes(read_buffer);
+			//Error handling
 			if (result == rp_values::ComResult::STATUS_WRONG_FLAG) {
 				printf("WRONG FLAGS, WILL SYNC BACK\n");
 				wrong_flag = true;
@@ -321,16 +325,20 @@ void RPLidar::process_express_scans() {
 			}
 			wrong_flag = false;
 		}
-//		for(uint8_t data_byte : read_buffer){
-//			printf("0x%02X ",data_byte);
-//		}
-//		printf("\n");
+
+		//Read the current measurement to process
 		measurement_id++;
 		Measurement measurement=get_next_measurement(packet_current, packet_next.start_angle, measurement_id);
+		//	if(measurement.angle>358.7){
+		//	Logs
+		printf("AHEND\n");
 		double duration= msecs()-start_time;
 		start_time= msecs();
 		printf("d %u ang %f\n", measurement.distance, measurement.angle);
 		printf("Delta_t = %dms\n", static_cast<uint32_t>(duration));
+		//	}
+
+
 	}
 }
 
