@@ -265,55 +265,63 @@ int8_t RPLidar::check_new_turn(float next_angle, data_wrappers::FullScan &curren
  * Main Loop for processing express scan data
  */
 bool RPLidar::process_express_scans(FullScan &current_scan) {
+	bool error_handling=false;
 	bool express_packet_ongoing=true;
 	current_scan.clear();										//Reinitialize scan
 	bool wrong_flag=false;									//For resynchronization when wrong flags
 	std::vector<uint8_t> read_buffer;					//input buffer
-	current_scan.measurement_id=32;
-	uint8_t last_id=32;
+
 	double start_time = msecs();
-	while(express_packet_ongoing) {
-		if(current_scan.measurement_id==32) {	//If we need to restart a new express packet decoding
-			if(last_id==31){	//Si on a parcouru une fois le packet actuel, fin
-				break;
-			}
-			current_scan.measurement_id = 0;
-			if (current_scan.next_packet.distances.empty()) {	//If there is no next packet (begginning, we only have one packet)
+	for(int i=0;i<11;i++) {
+		current_scan.measurement_id=32;
+		uint8_t last_id=32;
+		while (express_packet_ongoing) {
+			if (current_scan.measurement_id == 32) {    //If we need to restart a new express packet decoding
+				if (last_id == 31) {    //Si on a parcouru une fois le packet actuel, fin
+					break;
+				}
+				current_scan.measurement_id = 0;
+				if (current_scan.next_packet.distances.empty()) {    //If there is no next packet (begginning, we only have one packet)
+					read_scan_data(read_buffer, DATA_SIZE_EXPRESS_SCAN, wrong_flag);
+					rp_values::ComResult result = current_scan.next_packet.decode_packet_bytes(read_buffer);
+					if (error_handling) {
+						//Error handling
+						if (result == rp_values::ComResult::STATUS_WRONG_FLAG) {
+							printf("WRONG FLAGS, WILL SYNC BACK\n");
+							wrong_flag = true;
+							continue; //Couldn't decode an Express packet (wrong flags or checksum)
+						} else if (result != rp_values::ComResult::STATUS_OK) {
+							printf("WRONG CHECKSUM OR COM ERROR, IGNORE PACKET\n");
+							continue;
+						}
+					}
+				}
+				current_scan.current_packet = current_scan.next_packet;    //We finished a packet, we go to the next
 				read_scan_data(read_buffer, DATA_SIZE_EXPRESS_SCAN, wrong_flag);
-//				rp_values::ComResult result =
-				current_scan.next_packet.decode_packet_bytes(read_buffer);
-				//Error handling
-//				if (result == rp_values::ComResult::STATUS_WRONG_FLAG) {
-//					printf("WRONG FLAGS, WILL SYNC BACK\n");
-//					wrong_flag = true;
-//					continue; //Couldn't decode an Express packet (wrong flags or checksum)
-//				} else if (result != rp_values::ComResult::STATUS_OK) {
-//					printf("WRONG CHECKSUM OR COM ERROR, IGNORE PACKET\n");
-//					continue;
-//				}
+				rp_values::ComResult result = current_scan.next_packet.decode_packet_bytes(read_buffer);
+				if (error_handling) {
+					//Error handling
+					if (result == rp_values::ComResult::STATUS_WRONG_FLAG) {
+						printf("WRONG FLAGS, WILL SYNC BACK\n");
+						wrong_flag = true;
+						continue; //Couldn't decode an Express packet (wrong flags or checksum)
+					} else if (result != rp_values::ComResult::STATUS_OK) {
+						printf("WRONG CHECKSUM OR COM ERROR, IGNORE PACKET\n");
+						continue;
+					}
+					wrong_flag = false;
+				}
 			}
-			current_scan.current_packet = current_scan.next_packet;	//We finished a packet, we go to the next
-			read_scan_data(read_buffer, DATA_SIZE_EXPRESS_SCAN, wrong_flag);
-			//rp_values::ComResult result =
-			 current_scan.next_packet.decode_packet_bytes(read_buffer);
-			//Error handling
-//			if (result == rp_values::ComResult::STATUS_WRONG_FLAG) {
-//				printf("WRONG FLAGS, WILL SYNC BACK\n");
-//				wrong_flag = true;
-//				continue; //Couldn't decode an Express packet (wrong flags or checksum)
-//			} else if (result != rp_values::ComResult::STATUS_OK) {
-//				printf("WRONG CHECKSUM OR COM ERROR, IGNORE PACKET\n");
-//				continue;
-//			}
-//			wrong_flag = false;
+			//Read the current measurement to process
+			last_id = current_scan.measurement_id;
+			current_scan.measurement_id++;
+			Measurement measurement = get_next_measurement(current_scan.current_packet,
+														   current_scan.next_packet.start_angle,
+														   current_scan.measurement_id);
+			//	Logs
+			//	printf("d %u ang %f\n", measurement.distance, measurement.angle);
+			current_scan.add_measurement(measurement);
 		}
-		//Read the current measurement to process
-		last_id=current_scan.measurement_id;
-		current_scan.measurement_id++;
-		Measurement measurement=get_next_measurement(current_scan.current_packet, current_scan.next_packet.start_angle, current_scan.measurement_id);
-		//	Logs
-//		printf("d %u ang %f\n", measurement.distance, measurement.angle);
-		current_scan.add_measurement(measurement);
 	}
 	double duration= msecs()-start_time;
 	std::cout<<"Delta_t ="<<duration<<"ms"<<std::endl;
