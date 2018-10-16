@@ -112,15 +112,6 @@ namespace data_wrappers {
 		}
 	};
 
-	struct Measurement{
-		float angle=0;
-		uint16_t distance=0;
-		Measurement(uint16_t d, float a){
-			angle=a;
-			distance=d;
-		}
-	};
-
 	struct ExpressScanPacket {
 		std::vector<uint16_t> distances;        //measurement distance for each value in the packet
 		std::vector<float> d_angles;            //delta angle for each value in the packet
@@ -171,6 +162,45 @@ namespace data_wrappers {
 			else{
 				return rp_values::ComResult::STATUS_OK;
 			}
+		}
+	};
+
+	struct Measurement{
+		float angle=0;
+		uint16_t distance=0;
+		Measurement(uint16_t d, float a){
+			angle=a;
+			distance=d;
+		}
+	};
+
+	struct FullScan{
+		std::vector<Measurement> measurements;
+		ExpressScanPacket	current_packet; 	//Current express packet data
+		ExpressScanPacket next_packet;		//Next express packet data(formula in com. protocol datasheet requires two consecutive scans, cf p23)
+		uint8_t measurement_id;						//To go through the 32 measurements in each express packet
+
+		void add_measurement(Measurement measurement){
+			measurements.push_back(measurement);
+		}
+
+		void clear(){
+			measurements.clear();
+		}
+
+		ssize_t size(){
+			return measurements.size();
+		}
+
+		Measurement& operator[](uint16_t index){
+			return measurements[index];
+		}
+
+		std::vector<Measurement>::iterator begin(){
+			return measurements.begin();
+		}
+		std::vector<Measurement>::iterator end(){
+			return measurements.end();
 		}
 	};
 }

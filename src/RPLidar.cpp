@@ -1,4 +1,3 @@
-#include <csignal>
 #include <cmath>
 #include <iostream>
 #include <iomanip>
@@ -7,10 +6,6 @@
 
 using namespace rp_values;
 using namespace data_wrappers;
-
-
-bool running=true; //Variable to manage stops when signals are received
-
 
 /**
  * Gives the current epoch, in milliseconds
@@ -23,16 +18,8 @@ double msecs()
 	return (double) tv.tv_usec / 1000 + tv.tv_sec * 1000;
 }
 
-void signal_handler(int signo){
-	if(signo==SIGTERM || signo==SIGINT)
-		running = false;
-}
-
-
 RPLidar::RPLidar(const char *serial_path) : port(serial_path, B115200, 0){
-	signal(SIGTERM, signal_handler);
-	signal(SIGINT, signal_handler);
-	running=true;
+
 }
 
 void RPLidar::print_status(){
@@ -45,19 +32,18 @@ void RPLidar::print_status(){
 	SampleRateData sampleRateData;
 	get_samplerate(&sampleRateData);
 
-
-	cout<<"#######################################"<<endl;
-	cout<<left<<setw(3)<<"#"<<left<<setw(27)<<"RPLidar Model:"<<setw(8)<<"A"+to_string(infoData.model>>4)+"M"+to_string(infoData.model&0x0F);
+	cout<<"##############################################"<<endl;
+	cout<<left<<setw(3)<<"#"<<left<<setw(27)<<"RPLidar Model:"<<setw(15)<<"A"+to_string(infoData.model>>4)+"M"+to_string(infoData.model&0x0F);
 	cout<<right<<"#"<<endl;
-	cout<<left<<setw(3)<<"#"<<left<<setw(27)<<"Firmware version: "<<setw(8)<<to_string(infoData.firmware_major)+to_string(infoData.firmware_minor);
+	cout<<left<<setw(3)<<"#"<<left<<setw(27)<<"Firmware version: "<<setw(15)<<to_string(infoData.firmware_major)+to_string(infoData.firmware_minor);
 	cout<<right<<"#"<<endl;
-	cout<<left<<setw(3)<<"#"<<left<<setw(27)<<"Lidar Health: "<<setw(8)<<string(healthData.status==rp_values::LidarStatus::LIDAR_OK?"OK":(healthData.status==rp_values::LidarStatus::LIDAR_WARNING?"WARNING":"ERROR"));
+	cout<<left<<setw(3)<<"#"<<left<<setw(27)<<"Lidar Health: "<<setw(15)<<string(healthData.status==rp_values::LidarStatus::LIDAR_OK?"OK":(healthData.status==rp_values::LidarStatus::LIDAR_WARNING?"WARNING":"ERROR"));
 	cout<<right<<"#"<<endl;
-	cout<<left<<setw(3)<<"#"<<left<<setw(27)<<("Scan sampling period:")<<setw(8)<<to_string(sampleRateData.scan_sample_rate)+"us";
+	cout<<left<<setw(3)<<"#"<<left<<setw(27)<<("Scan sampling period:")<<setw(15)<<to_string(sampleRateData.scan_sample_rate)+"us";
 	cout<<right<<"#"<<endl;
-	cout<<left<<setw(3)<<"#"<<left<<setw(27)<<("Express sampling period:")<<setw(8)<<to_string(sampleRateData.express_sample_rate)+"us";
+	cout<<left<<setw(3)<<"#"<<left<<setw(27)<<("Express sampling period:")<<setw(15)<<to_string(sampleRateData.express_sample_rate)+"us";
 	cout<<right<<"#"<<endl;
-	cout<<"#######################################"<<endl;
+	cout<<"##############################################"<<endl;
 
 	//Warnings
 	if(healthData.status<0){
@@ -242,19 +228,6 @@ rp_values::ComResult RPLidar::stop_scan() {
 	return send_packet(STOP);
 }
 
-
-/**
- * Requests the start of a regular scan
- * @return result of the communication
- */
-ComResult RPLidar::start_scan() {
-	send_packet(SCAN);
-	uint32_t data_size = port.read_descriptor();
-	return data_size==DATA_SIZE_SCAN?ComResult::STATUS_OK:ComResult::STATUS_ERROR;
-
-}
-
-
 /**
  * Function used to compute angle difference (according to doc)
  * @param angle1 : current packet angle
@@ -283,91 +256,74 @@ data_wrappers::Measurement RPLidar::get_next_measurement(data_wrappers::ExpressS
 }
 
 
-/**
- * Main Loop for processing express scan data
- */
-void RPLidar::process_express_scans() {
-	bool wrong_flag=false;						//For resynchronization when wrong flags
-	std::vector<uint8_t> read_buffer;		//input buffer
-	ExpressScanPacket packet_current;	//Current express packet data
-	ExpressScanPacket packet_next;		//Next express packet data(formula in com. protocol datasheet needs two consecutive scans, cf p23)
-	uint8_t measurement_id=32;				//To go through the 32 measurements in each express packet
-	double start_time = msecs();
-
-	while(running) {
-		if(measurement_id==32) {	//If we need to restart a new express packet decoding
-			measurement_id = 0;
-			if (packet_next.distances.empty()) {	//If there is no next packet (begginning, we only have one packet)
-				read_scan_data(read_buffer, DATA_SIZE_EXPRESS_SCAN, wrong_flag);
-				rp_values::ComResult result = packet_next.decode_packet_bytes(read_buffer);
-
-				//Error handling
-				if (result == rp_values::ComResult::STATUS_WRONG_FLAG) {
-					printf("WRONG FLAGS, WILL SYNC BACK\n");
-					wrong_flag = true;
-					continue; //Couldn't decode an Express packet (wrong flags or checksum)
-				} else if (result != rp_values::ComResult::STATUS_OK) {
-					printf("WRONG CHECKSUM OR COM ERROR, IGNORE PACKET\n");
-					continue;
-				}
-			}
-			packet_current = packet_next;	//We finished a packet, we go to the next
-			read_scan_data(read_buffer, DATA_SIZE_EXPRESS_SCAN, wrong_flag);
-			rp_values::ComResult result = packet_next.decode_packet_bytes(read_buffer);
-			//Error handling
-			if (result == rp_values::ComResult::STATUS_WRONG_FLAG) {
-				printf("WRONG FLAGS, WILL SYNC BACK\n");
-				wrong_flag = true;
-				continue; //Couldn't decode an Express packet (wrong flags or checksum)
-			} else if (result != rp_values::ComResult::STATUS_OK) {
-				printf("WRONG CHECKSUM OR COM ERROR, IGNORE PACKET\n");
-				continue;
-			}
-			wrong_flag = false;
-		}
-
-		//Read the current measurement to process
-		measurement_id++;
-		Measurement measurement=get_next_measurement(packet_current, packet_next.start_angle, measurement_id);
-		//	if(measurement.angle>358.7){
-		//	Logs
-		printf("AHEND\n");
-		double duration= msecs()-start_time;
-		start_time= msecs();
-		printf("d %u ang %f\n", measurement.distance, measurement.angle);
-		printf("Delta_t = %dms\n", static_cast<uint32_t>(duration));
-		//	}
-
-
-	}
+int8_t RPLidar::check_new_turn(float next_angle, data_wrappers::FullScan &current_scan) {
+	return ((next_angle<5) && (current_scan[current_scan.size()-1].angle>355)?1:-1); // Petite marge
 }
 
 
 /**
- * Main Loop for processing regular scan data
+ * Main Loop for processing express scan data
  */
-void RPLidar::process_regular_scans() {
-	std::vector<uint8_t> read_buffer;
-	ScanPacket packet_current;
-
-	// Need two packets for angle computing: current and last (cf formula in p23 of com. protocol documentation)
+bool RPLidar::process_express_scans(FullScan &current_scan) {
+	bool express_packet_ongoing=true;
+	current_scan.clear();										//Reinitialize scan
+	bool wrong_flag=false;									//For resynchronization when wrong flags
+	std::vector<uint8_t> read_buffer;					//input buffer
+	current_scan.measurement_id=32;
+	uint8_t last_id=32;
 	double start_time = msecs();
-	while(running) {
-		read_buffer.clear();
-		read_scan_data(read_buffer, DATA_SIZE_SCAN);
-		for(uint8_t data_byte : read_buffer){
-			printf("0x%02X ",data_byte);
+	while(express_packet_ongoing) {
+		if(current_scan.measurement_id==32) {	//If we need to restart a new express packet decoding
+			if(last_id==31){	//Si on a parcouru une fois le packet actuel, fin
+				break;
+			}
+			current_scan.measurement_id = 0;
+			if (current_scan.next_packet.distances.empty()) {	//If there is no next packet (begginning, we only have one packet)
+				read_scan_data(read_buffer, DATA_SIZE_EXPRESS_SCAN, wrong_flag);
+//				rp_values::ComResult result =
+				current_scan.next_packet.decode_packet_bytes(read_buffer);
+				//Error handling
+//				if (result == rp_values::ComResult::STATUS_WRONG_FLAG) {
+//					printf("WRONG FLAGS, WILL SYNC BACK\n");
+//					wrong_flag = true;
+//					continue; //Couldn't decode an Express packet (wrong flags or checksum)
+//				} else if (result != rp_values::ComResult::STATUS_OK) {
+//					printf("WRONG CHECKSUM OR COM ERROR, IGNORE PACKET\n");
+//					continue;
+//				}
+			}
+			current_scan.current_packet = current_scan.next_packet;	//We finished a packet, we go to the next
+			read_scan_data(read_buffer, DATA_SIZE_EXPRESS_SCAN, wrong_flag);
+			//rp_values::ComResult result =
+			 current_scan.next_packet.decode_packet_bytes(read_buffer);
+			//Error handling
+//			if (result == rp_values::ComResult::STATUS_WRONG_FLAG) {
+//				printf("WRONG FLAGS, WILL SYNC BACK\n");
+//				wrong_flag = true;
+//				continue; //Couldn't decode an Express packet (wrong flags or checksum)
+//			} else if (result != rp_values::ComResult::STATUS_OK) {
+//				printf("WRONG CHECKSUM OR COM ERROR, IGNORE PACKET\n");
+//				continue;
+//			}
+//			wrong_flag = false;
 		}
-		printf("\n");
-		rp_values::ComResult result=packet_current.decode_packet_bytes(read_buffer);
-		if(result != rp_values::ComResult::STATUS_OK){
-			printf("WRONG CHECKSUM OR COM ERROR, IGNORE PACKET\n");
-			continue;
-		}
-
-		double duration= msecs()-start_time;
-		start_time= msecs();
-		printf("New Packet: Angle=%f, distance=%u\n", packet_current.angle, packet_current.distance);
-		printf("Delta_t = %dms\n", static_cast<uint32_t>(duration));
+		//Read the current measurement to process
+		last_id=current_scan.measurement_id;
+		current_scan.measurement_id++;
+		Measurement measurement=get_next_measurement(current_scan.current_packet, current_scan.next_packet.start_angle, current_scan.measurement_id);
+		//	Logs
+//		printf("d %u ang %f\n", measurement.distance, measurement.angle);
+		current_scan.add_measurement(measurement);
 	}
+	double duration= msecs()-start_time;
+	std::cout<<"Delta_t ="<<duration<<"ms"<<std::endl;
+	return true;
+}
+
+void RPLidar::print_scan(data_wrappers::FullScan scan) {
+	std::cout<<"SCAN: "<<scan.size()<<" values. Content: ";
+	for(Measurement& m:scan){
+		std::cout<<"[Angle= "<<m.angle<<" Dist= "<<m.distance<<"mm] ";
+	}
+	std::cout<<std::endl;
 }

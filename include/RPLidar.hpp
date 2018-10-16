@@ -6,9 +6,9 @@
 #include <sys/time.h>
 
 class RPLidar {
-public:
 	SerialCommunication port;
 
+public:
 	RPLidar(const char* serial_path);
 
 	void print_status();
@@ -25,11 +25,10 @@ public:
 	rp_values::ComResult read_scan_data(std::vector<uint8_t> &output_data, uint8_t size, bool to_sync = false);
 	rp_values::ComResult stop_scan();
 
-	rp_values::ComResult start_scan();
+	int8_t check_new_turn(float next_angle, data_wrappers::FullScan &current_scan);
+	bool process_express_scans(data_wrappers::FullScan &current_scan);
 
-	void process_express_scans();
-
-	void process_regular_scans();
+	void print_scan(data_wrappers::FullScan scan);
 };
 
 #endif //RPLIDAR_A2_LIDAR_HPP
