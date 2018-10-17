@@ -1,4 +1,4 @@
-#include "RPLidar.hpp"
+#include "LidarWrapper/RPLidar.hpp"
 #include <unistd.h>
 #include <cmath>
 #include <iostream>
@@ -40,7 +40,6 @@ int main(int argc, char** argv){
  	**************************************/
 	while(running) {
 		lidar.process_express_scans(current_scan);
-
 
 		lidar.print_scan(current_scan);
 

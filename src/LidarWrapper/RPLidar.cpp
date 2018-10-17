@@ -1,8 +1,8 @@
 #include <cmath>
 #include <iostream>
 #include <iomanip>
-#include "ReturnDataWrappers.hpp"
-#include "RPLidar.hpp"
+#include "LidarWrapper/ReturnDataWrappers.hpp"
+#include "LidarWrapper/RPLidar.hpp"
 
 using namespace rp_values;
 using namespace data_wrappers;
@@ -265,14 +265,15 @@ int8_t RPLidar::check_new_turn(float next_angle, data_wrappers::FullScan &curren
  * Main Loop for processing express scan data
  */
 bool RPLidar::process_express_scans(FullScan &current_scan) {
-	bool error_handling=false;
+	bool error_handling=true;
+	bool scan_finished=false;
 	bool express_packet_ongoing=true;
 	current_scan.clear();										//Reinitialize scan
 	bool wrong_flag=false;									//For resynchronization when wrong flags
 	std::vector<uint8_t> read_buffer;					//input buffer
 
 	double start_time = msecs();
-	for(int i=0;i<11;i++) {
+	for(int i=0;i<10;i++){
 		current_scan.measurement_id=32;
 		uint8_t last_id=32;
 		while (express_packet_ongoing) {
