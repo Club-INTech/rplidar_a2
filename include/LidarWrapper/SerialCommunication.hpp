@@ -15,7 +15,7 @@ class SerialCommunication {
 	uint8_t data[rp_values::REQUEST_SIZE];
 	void setDTR(bool enable);
 	int set_interface_attribs(speed_t speed, int parity);
-	void set_blocking(bool should_block);
+	void set_blocking(bool should_block, uint8_t timeout);
 public:
 	SerialCommunication(const char* filePath, speed_t baudrate, int parity);
 	rp_values::ComResult send_packet(const RequestPacket &packet);

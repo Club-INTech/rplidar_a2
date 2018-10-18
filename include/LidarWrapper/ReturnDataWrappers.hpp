@@ -5,9 +5,11 @@
 #ifndef RPLIDAR_A2_RETURNDATAWRAPPERS_HPP
 #define RPLIDAR_A2_RETURNDATAWRAPPERS_HPP
 
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <vector>
+#include <algorithm>
 #include "LidarEnums.hpp"
 
 namespace data_wrappers {
@@ -172,13 +174,16 @@ namespace data_wrappers {
 			angle=a;
 			distance=d;
 		}
+		bool operator<(const Measurement& other){
+			return angle<other.angle;
+		}
 	};
 
 	struct FullScan{
 		std::vector<Measurement> measurements;
 		ExpressScanPacket	current_packet; 	//Current express packet data
 		ExpressScanPacket next_packet;		//Next express packet data(formula in com. protocol datasheet requires two consecutive scans, cf p23)
-		uint8_t measurement_id;						//To go through the 32 measurements in each express packet
+		uint8_t measurement_id=32;						//To go through the 32 measurements in each express packet
 
 		void add_measurement(Measurement measurement){
 			measurements.push_back(measurement);
@@ -201,6 +206,31 @@ namespace data_wrappers {
 		}
 		std::vector<Measurement>::iterator end(){
 			return measurements.end();
+		}
+
+		/**
+		 * Gets the "measurement_id"th measurement in the current packet, needs the next packet also
+		 * @param scan_packet : current express packet
+		 * @param next_angle : start angle of next express packet
+		 * @param measurement_id : id of the measurement needed
+		 * @return Measurement struct (includes distance and angle of the measurement)
+		 */
+		Measurement get_next_measurement(const data_wrappers::ExpressScanPacket& scan_packet, float next_angle, uint8_t measurement_id) {
+			uint16_t distance=scan_packet.distances[measurement_id-1];
+			float angle_diff=(next_angle>=scan_packet.start_angle)?(next_angle-scan_packet.start_angle):(360+next_angle-scan_packet.start_angle);
+			float angle=fmodf(scan_packet.start_angle+(angle_diff/32.0f)*measurement_id-scan_packet.d_angles[measurement_id-1], 360.0f);
+			return {distance, angle};
+		}
+
+		//Returns true if there is a new turn
+		bool compute_measurements(){
+			float last_angle;
+			for(measurement_id=0;measurement_id<32;measurement_id++){
+				Measurement m=get_next_measurement(current_packet, next_packet.start_angle, measurement_id);
+				if(m.angle)
+				add_measurement(m);
+			}
+			return false;
 		}
 	};
 }

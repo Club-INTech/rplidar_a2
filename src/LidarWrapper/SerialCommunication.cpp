@@ -6,9 +6,6 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
-#include <LidarWrapper/SerialCommunication.hpp>
-
-
 #include "LidarWrapper/SerialCommunication.hpp"
 
 using namespace rp_values;
@@ -21,7 +18,7 @@ SerialCommunication::SerialCommunication(const char *filePath, speed_t baudrate,
 	}
 	path=std::string(filePath);
 	set_interface_attribs(baudrate, parity); 				//sets up file attributes with termios for serial communication (8N1)
-	set_blocking(true);												//Blocking communication, with timeout
+	set_blocking(true, 5);												//Blocking communication, with timeout
 	setDTR(false);														//DTR disables PWM control of the motor, so it should be disabled
 	memset(data, 0, rp_values::REQUEST_SIZE);	//Initialize output data buffer to 0
 }
@@ -105,7 +102,7 @@ int SerialCommunication::set_interface_attribs(speed_t speed, int parity) {
 		printf("Error: cfsetispeed | cfsetospeed\n");
 		exit(EXIT_FAILURE);
 	}
-//
+
 //	cfsetospeed (&tty, speed);
 //	cfsetispeed (&tty, speed);
 //
@@ -141,9 +138,10 @@ int SerialCommunication::set_interface_attribs(speed_t speed, int parity) {
 
 /**
  * Sets blocking state of the file descriptor interface
- * @param should_block
+ * @param should_block or not
+ * @param timeout in tenths of seconds
  */
-void SerialCommunication::set_blocking(bool should_block) {
+void SerialCommunication::set_blocking(bool should_block, uint8_t timeout) {
 	struct termios tty;
 	memset (&tty, 0, sizeof tty);
 	if (tcgetattr (serial_fd, &tty) != 0)
@@ -152,7 +150,7 @@ void SerialCommunication::set_blocking(bool should_block) {
 		return;
 	}
 	tty.c_cc[VMIN]  = should_block ? 1 : 0;
-	tty.c_cc[VTIME] = 5;            	// 0.5 seconds read timeout
+	tty.c_cc[VTIME] = timeout;            	// 0.1*timeout seconds read timeout
 	if (tcsetattr (serial_fd, TCSANOW, &tty) != 0)
 		printf ("error %d setting term attributes", errno);
 }

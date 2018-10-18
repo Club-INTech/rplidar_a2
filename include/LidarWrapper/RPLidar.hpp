@@ -20,7 +20,6 @@ public:
 	rp_values::ComResult start_motor();
 	rp_values::ComResult stop_motor();
 
-	data_wrappers::Measurement get_next_measurement(data_wrappers::ExpressScanPacket& scan_packet, float next_angle, uint8_t measurement_id);
 	rp_values::ComResult start_express_scan();
 	rp_values::ComResult read_scan_data(std::vector<uint8_t> &output_data, uint8_t size, bool to_sync = false);
 	rp_values::ComResult stop_scan();

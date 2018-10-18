@@ -1,9 +1,9 @@
-#include "LidarWrapper/RPLidar.hpp"
 #include <unistd.h>
 #include <cmath>
 #include <iostream>
 #include <iomanip>
 #include <csignal>
+#include "LidarWrapper/RPLidar.hpp"
 
 using namespace data_wrappers;
 using namespace std;
@@ -34,6 +34,7 @@ int main(int argc, char** argv){
 	lidar.start_motor();
 	sleep(2);	//Let motor spin
 	lidar.start_express_scan();
+	float last_angle=0;
 
 	/* ************************************
  	*                   TEST MAIN LOOP             *
@@ -42,7 +43,6 @@ int main(int argc, char** argv){
 		lidar.process_express_scans(current_scan);
 
 		lidar.print_scan(current_scan);
-
 	}
 	/* ***********************************
 	 *                       STOP ALL                    *
