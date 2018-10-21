@@ -224,10 +224,8 @@ namespace data_wrappers {
 
 		//Returns true if there is a new turn
 		bool compute_measurements(){
-			float last_angle;
 			for(measurement_id=0;measurement_id<32;measurement_id++){
 				Measurement m=get_next_measurement(current_packet, next_packet.start_angle, measurement_id);
-				if(m.angle)
 				add_measurement(m);
 			}
 			return false;

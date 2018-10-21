@@ -22,6 +22,7 @@ public:
 	uint32_t read_descriptor();
 	uint8_t* read_data(uint32_t num_bytes);
 	uint8_t read_byte();
+	void flush();
 };
 
 

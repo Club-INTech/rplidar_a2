@@ -1,5 +1,6 @@
 #include <iostream>
 #include <iomanip>
+#include <unistd.h>
 #include "LidarWrapper/ReturnDataWrappers.hpp"
 #include "LidarWrapper/RPLidar.hpp"
 
@@ -18,7 +19,7 @@ double msecs()
 }
 
 RPLidar::RPLidar(const char *serial_path) : port(serial_path, B115200, 0){
-
+//	stop_scan();
 }
 
 void RPLidar::print_status(){
@@ -179,6 +180,9 @@ ComResult RPLidar::set_pwm(uint16_t pwm) {
 ComResult RPLidar::start_express_scan() {
 	send_packet(EXPRESS_SCAN, {0,0,0,0,0});
 	uint32_t data_size = port.read_descriptor();
+//	while(true){
+//		printf("0x%02X\n", port.read_byte());
+//	}
 	return data_size==DATA_SIZE_EXPRESS_SCAN?ComResult::STATUS_OK:ComResult::STATUS_ERROR;
 }
 
@@ -224,7 +228,11 @@ rp_values::ComResult RPLidar::read_scan_data(std::vector<uint8_t> &output_data, 
  * @return result of the communication
  */
 rp_values::ComResult RPLidar::stop_scan() {
-	return send_packet(STOP);
+	printf("STOP THE FUCKING SCAN\n");
+	auto result=send_packet(STOP);
+	usleep(100000);
+	port.flush();
+	return result;
 }
 
 int8_t RPLidar::check_new_turn(float next_angle, data_wrappers::FullScan &current_scan) {
@@ -276,8 +284,8 @@ bool RPLidar::process_express_scans(FullScan &current_scan) {
 		}
 		current_scan.compute_measurements();
 	}
-	std::sort(current_scan.measurements.begin(), current_scan.measurements.end(),
-			  [](const Measurement &a, const Measurement &b) { return a.angle < b.angle; });
+//	std::sort(current_scan.measurements.begin(), current_scan.measurements.end(),
+//			  [](const Measurement &a, const Measurement &b) { return a.angle < b.angle; });
 	double duration = msecs() - start_time;
 	std::cout << "Delta_t =" << duration << "ms" << std::endl;
 	return true;

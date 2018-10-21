@@ -6,6 +6,8 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+#include <LidarWrapper/SerialCommunication.hpp>
+
 #include "LidarWrapper/SerialCommunication.hpp"
 
 using namespace rp_values;
@@ -183,6 +185,10 @@ ComResult SerialCommunication::send_packet(const RequestPacket &packet) {
 uint32_t SerialCommunication::read_descriptor() {
 	uint8_t read_descriptor[rp_values::DESCRIPTOR_SIZE]={0};
 	ssize_t read_size = read(serial_fd, read_descriptor, 7);	//Reads from the serial_fd buffer, copies it to read_descriptor[7]
+	for(int i=0;i<rp_values::DESCRIPTOR_SIZE;i++){
+		printf("0x%02x ", read_descriptor[i]);
+	}
+	printf("\n");
 	if(read_size<rp_values::DESCRIPTOR_SIZE){
 		printf("Error: serial descriptor read incomplete: read %d/7 bytes\n", (uint32_t)read_size);
 		return 0; //Return 0, let the user handle what happens
@@ -226,4 +232,18 @@ uint8_t SerialCommunication::read_byte() {
 		return 0;
 	}
 	return read_data;
+}
+
+
+/**
+ * Reads all available data in the RX buffer
+ */
+void SerialCommunication::flush() {
+	char buff[1];
+	ssize_t res=1;
+	while(res>0){
+		set_blocking(false,0);
+		res=read(serial_fd, buff, 1);
+		set_blocking(true, 5);
+	}
 }
