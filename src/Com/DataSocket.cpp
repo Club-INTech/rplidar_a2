@@ -60,7 +60,6 @@ int DataSocket::send_scan(data_wrappers::FullScan &scan) {
 	char* send_buffer=new char[size];
 	std::cout<<size<<" bytes allocated."<<std::endl;
 	char* cursor=send_buffer;
-	int c=0;
 	for(data_wrappers::Measurement& measure : scan){
 		cursor+=sprintf(cursor,"%d:%.2f;", measure.distance, measure.angle);
 	}
