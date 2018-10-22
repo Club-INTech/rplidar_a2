@@ -103,7 +103,7 @@ namespace data_wrappers {
 
 		rp_values::ComResult decode_packet_bytes(const std::vector<uint8_t>& scan_data){
 			if(check_C_bit(scan_data)==rp_values::ComResult::STATUS_WRONG_CHECKSUM){
-				printf("ERROR: CHECKSUM WRONG ");
+				printf("ERROR: CHECKSUM WRONG: ");
 				printf("%02X %02X\n",scan_data[0], scan_data[1]);
 				return rp_values::ComResult::STATUS_WRONG_CHECKSUM;
 			}

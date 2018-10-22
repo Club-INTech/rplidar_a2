@@ -14,6 +14,8 @@ DataSocket::DataSocket(const char *address_string, uint16_t server_port) {
 		perror("Error at socket creation");
 		exit(EXIT_FAILURE);
 	}
+
+	fcntl(server_socket, F_SETFL, O_NONBLOCK); //NON BLOCKING
 	//Address config
 	memset(server_address_p, 0, sizeof(*server_address_p));
 	server_address_p->sin_family=AF_INET;
@@ -48,11 +50,13 @@ bool DataSocket::accept_client() {
 	int addr_len=sizeof(*server_address_p);
 	int new_socket = accept(server_socket, (struct sockaddr *) server_address_p, (socklen_t *) &addr_len);
 	if(new_socket<=0){
-		perror("Error accept");
+		usleep(50000);
 		return false;
 	}
-	client_socket=new_socket;
-	return true;
+	else {
+		client_socket = new_socket;
+		return true;
+	}
 }
 
 int DataSocket::send_scan(data_wrappers::FullScan &scan) {

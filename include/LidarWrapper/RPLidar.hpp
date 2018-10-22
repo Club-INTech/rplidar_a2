@@ -25,7 +25,7 @@ public:
 	rp_values::ComResult stop_scan();
 
 	int8_t check_new_turn(float next_angle, data_wrappers::FullScan &current_scan);
-	bool process_express_scans(data_wrappers::FullScan &current_scan);
+	bool process_express_scans(data_wrappers::FullScan &current_scan, bool debug=false);
 
 	void print_scan(data_wrappers::FullScan scan);
 };

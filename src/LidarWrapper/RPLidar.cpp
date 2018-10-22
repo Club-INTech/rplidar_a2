@@ -241,7 +241,7 @@ int8_t RPLidar::check_new_turn(float next_angle, data_wrappers::FullScan &curren
 /**
  * Main Loop for processing express scan data
  */
-bool RPLidar::process_express_scans(FullScan &current_scan) {
+bool RPLidar::process_express_scans(FullScan &current_scan, bool debug) {
 	bool error_handling = true;
 	current_scan.clear();                                        //Reinitialize scan
 	bool wrong_flag = false;                                    //For resynchronization when wrong flags
@@ -285,8 +285,10 @@ bool RPLidar::process_express_scans(FullScan &current_scan) {
 	}
 //	std::sort(current_scan.measurements.begin(), current_scan.measurements.end(),
 //			  [](const Measurement &a, const Measurement &b) { return a.angle < b.angle; });
-	double duration = msecs() - start_time;
-	std::cout << "Delta_t =" << duration << "ms" << std::endl;
+	if(!debug) {
+		double duration = msecs() - start_time;
+		std::cout << "Delta_t =" << duration << "ms" << std::endl;
+	}
 	return true;
 }
 

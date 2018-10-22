@@ -15,7 +15,7 @@ using namespace rp_values;
 SerialCommunication::SerialCommunication(const char *filePath, speed_t baudrate, int parity) {
 	serial_fd=open(filePath, O_RDWR);		//Get a file descriptor to the serial device, usually /dev/ttyUSB0
 	if(serial_fd==-1){
-		printf("Error: Serial device not found at %s", filePath);
+		printf("Error: Serial device not found at %s\n", filePath);
 		exit(EXIT_FAILURE);
 	}
 	path=std::string(filePath);
@@ -131,7 +131,7 @@ int SerialCommunication::set_interface_attribs(speed_t speed, int parity) {
 	//Saves the attributes and applies them to the tty on 'serial_fd'
 	if (tcsetattr (serial_fd, TCSAFLUSH, &tty) < 0)
 	{
-		printf ("error %d from tcsetattr", errno);
+		printf ("error %d from tcsetattr\n", errno);
 		return -1;
 	}
 	return 0;
@@ -148,13 +148,13 @@ void SerialCommunication::set_blocking(bool should_block, uint8_t timeout) {
 	memset (&tty, 0, sizeof tty);
 	if (tcgetattr (serial_fd, &tty) != 0)
 	{
-		printf ("error %d from tggetattr", errno);
+		printf ("error %d from tggetattr\n", errno);
 		return;
 	}
 	tty.c_cc[VMIN]  = should_block ? 1 : 0;
 	tty.c_cc[VTIME] = timeout;            	// 0.1*timeout seconds read timeout
 	if (tcsetattr (serial_fd, TCSANOW, &tty) != 0)
-		printf ("error %d setting term attributes", errno);
+		printf ("error %d setting term attributes\n", errno);
 }
 
 
@@ -185,10 +185,10 @@ ComResult SerialCommunication::send_packet(const RequestPacket &packet) {
 uint32_t SerialCommunication::read_descriptor() {
 	uint8_t read_descriptor[rp_values::DESCRIPTOR_SIZE]={0};
 	ssize_t read_size = read(serial_fd, read_descriptor, 7);	//Reads from the serial_fd buffer, copies it to read_descriptor[7]
-	for(int i=0;i<rp_values::DESCRIPTOR_SIZE;i++){
-		printf("0x%02x ", read_descriptor[i]);
-	}
-	printf("\n");
+//	for(int i=0;i<rp_values::DESCRIPTOR_SIZE;i++){
+//		printf("0x%02x ", read_descriptor[i]);
+//	}
+//	printf("\n");
 	if(read_size<rp_values::DESCRIPTOR_SIZE){
 		printf("Error: serial descriptor read incomplete: read %d/7 bytes\n", (uint32_t)read_size);
 		return 0; //Return 0, let the user handle what happens

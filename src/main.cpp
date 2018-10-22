@@ -5,6 +5,9 @@
 #include <csignal>
 #include "LidarWrapper/RPLidar.hpp"
 #include "Com/DataSocket.hpp"
+
+#define DEBUG true
+
 static const char* SERVER_ADDRESS=	"127.0.0.1";
 static const uint16_t SERVER_PORT=		17685;
 using namespace data_wrappers;
@@ -28,7 +31,7 @@ int main(int argc, char** argv){
 	RPLidar lidar(argc>1?argv[argc - 1]:"/dev/ttyUSB0"); //Connects to lidar
 	data_wrappers::FullScan current_scan;
 	lidar.print_status(); // Print model, health, sampling rates
-
+	lidar.stop_motor();
 	/* ************************************
  	*                   TEST MAIN LOOP             *
  	**************************************/
@@ -38,6 +41,7 @@ int main(int argc, char** argv){
 		 **************************************/
 		std::cout<<"Waiting for client..."<<std::endl;
 		while(!HL.accept_client() && running);
+		if(!running) continue;
 		std::cout<<" Connected !"<<std::endl;
 		lidar.stop_scan();
 		lidar.start_motor();
@@ -46,7 +50,7 @@ int main(int argc, char** argv){
 		int result;
 		do{
 			//Update current scan (one turn of measurements)
-			lidar.process_express_scans(current_scan);
+			lidar.process_express_scans(current_scan, DEBUG);
 			// Data processing: obstacle extraction and Kalman(?)
 
 			//TODO
