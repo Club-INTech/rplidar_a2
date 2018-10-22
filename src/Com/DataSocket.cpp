@@ -58,17 +58,21 @@ bool DataSocket::accept_client() {
 int DataSocket::send_scan(data_wrappers::FullScan &scan) {
 	ssize_t size=(15)*scan.size();
 	char* send_buffer=new char[size];
-	std::cout<<size<<" bytes allocated."<<std::endl;
+//	std::cout<<size<<" bytes allocated."<<std::endl;
 	char* cursor=send_buffer;
 	for(data_wrappers::Measurement& measure : scan){
 		cursor+=sprintf(cursor,"%d:%.2f;", measure.distance, measure.angle);
 	}
 	sprintf(cursor, "\n");
-	printf("%d bytes written, %s",(int)(cursor-send_buffer),  send_buffer);
+//	printf("%d bytes written, %s",(int)(cursor-send_buffer),  send_buffer);
 	int result=send(client_socket, send_buffer, strlen(send_buffer), 0);
 	delete[] send_buffer;
 	if(result<0){
-		perror("Error sending data to client");
+		if(errno==EPIPE || errno==ECONNRESET)
+			std::cout<<"Client disconnected"<<std::endl;
+		else {
+			perror("Error sending data to client");
+		}
 	}
 	return result;
 }

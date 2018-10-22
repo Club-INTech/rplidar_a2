@@ -228,7 +228,6 @@ rp_values::ComResult RPLidar::read_scan_data(std::vector<uint8_t> &output_data, 
  * @return result of the communication
  */
 rp_values::ComResult RPLidar::stop_scan() {
-	printf("STOP THE FUCKING SCAN\n");
 	auto result=send_packet(STOP);
 	usleep(100000);
 	port.flush();

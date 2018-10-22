@@ -29,7 +29,6 @@ int main(int argc, char** argv){
 	data_wrappers::FullScan current_scan;
 	lidar.print_status(); // Print model, health, sampling rates
 
-
 	/* ************************************
  	*                   TEST MAIN LOOP             *
  	**************************************/
@@ -46,13 +45,16 @@ int main(int argc, char** argv){
 		lidar.start_express_scan();
 		int result;
 		do{
+			//Update current scan (one turn of measurements)
 			lidar.process_express_scans(current_scan);
+			// Data processing: obstacle extraction and Kalman(?)
 
+			//TODO
 
-
+			//Send the data to client, TODO send obstacle data(not full scan)
 			result=HL.send_scan(current_scan);
-			std::cout<<result<<std::endl;
-		}while(result>=0);
+			//	std::cout<<result<<std::endl;
+		}while(result>=0 && running);
 		lidar.stop_scan();
 		lidar.stop_motor(); //Stop motor if already running
 	}
