@@ -10,7 +10,7 @@
 #include <cstdio>
 #include <vector>
 #include <algorithm>
-#include "LidarEnums.hpp"
+#include "../../lidar/include/LidarEnums.hpp"
 
 namespace data_wrappers {
 	struct SampleRateData {

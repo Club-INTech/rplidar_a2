@@ -1,8 +1,8 @@
 #include <iostream>
 #include <iomanip>
 #include <unistd.h>
-#include "LidarWrapper/ReturnDataWrappers.hpp"
-#include "LidarWrapper/RPLidar.hpp"
+#include "../../lidar_wrapper/include/ReturnDataWrappers.hpp"
+#include "../include/RPLidar.hpp"
 
 using namespace rp_values;
 using namespace data_wrappers;

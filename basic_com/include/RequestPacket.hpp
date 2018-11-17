@@ -7,7 +7,7 @@
 
 #include <vector>
 
-#include "LidarEnums.hpp"
+#include "../../lidar/include/LidarEnums.hpp"
 
 
 struct RequestPacket{
