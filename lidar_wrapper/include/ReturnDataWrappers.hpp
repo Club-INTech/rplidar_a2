@@ -11,6 +11,7 @@
 #include <vector>
 #include <algorithm>
 #include "../../lidar/include/LidarEnums.hpp"
+#include "Measurement.h"
 
 namespace data_wrappers {
 	struct SampleRateData {
@@ -164,18 +165,6 @@ namespace data_wrappers {
 			else{
 				return rp_values::ComResult::STATUS_OK;
 			}
-		}
-	};
-
-	struct Measurement{
-		float angle=0;
-		uint16_t distance=0;
-		Measurement(uint16_t d, float a){
-			angle=a;
-			distance=d;
-		}
-		bool operator<(const Measurement& other){
-			return angle<other.angle;
 		}
 	};
 
