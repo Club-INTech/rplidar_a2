@@ -11,7 +11,7 @@
 #include <vector>
 #include <algorithm>
 #include "../../lidar/include/LidarEnums.hpp"
-#include "Measurement.h"
+#include "../../lidar/include/Measurement.h"
 
 namespace data_wrappers {
 	struct SampleRateData {
