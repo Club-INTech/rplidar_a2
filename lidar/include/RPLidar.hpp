@@ -3,9 +3,10 @@
 
 #include "../../basic_com/include/SerialCommunication.hpp"
 #include "../../lidar_wrapper/include/ReturnDataWrappers.hpp"
+#include "../../../Lidar.hpp"
 #include <sys/time.h>
 
-class RPLidar {
+class RPLidar : public Lidar {
 	SerialCommunication port;
 
 public:
