@@ -7,7 +7,6 @@
 #include <cstdint>
 
 namespace rp_values{
-
 	//Flags used to synchronize with LiDAR
 	static constexpr uint8_t START_FLAG=0xA5;
 	static constexpr uint8_t START_FLAG_2=0x5A;

@@ -4,12 +4,7 @@
 #include <iomanip>
 #include <csignal>
 #include "LidarWrapper/RPLidar.hpp"
-#include "Com/DataSocket.hpp"
 
-#define DEBUG true
-
-static const char* SERVER_ADDRESS=	"127.0.0.1";
-static const uint16_t SERVER_PORT=		17685;
 using namespace data_wrappers;
 using namespace std;
 
@@ -27,11 +22,9 @@ int main(int argc, char** argv){
 	signal(SIGINT, signal_handler);
 	running=true;
 
-	DataSocket HL(SERVER_ADDRESS, SERVER_PORT); //Connection to the client
 	RPLidar lidar(argc>1?argv[argc - 1]:"/dev/ttyUSB0"); //Connects to lidar
-	data_wrappers::FullScan current_scan;
 	lidar.print_status(); // Print model, health, sampling rates
-	lidar.stop_motor();
+	lidar.start();
 	/* ************************************
  	*                   TEST MAIN LOOP             *
  	**************************************/
@@ -39,33 +32,12 @@ int main(int argc, char** argv){
 		/* ************************************
 		 *                   START SCAN                    *
 		 **************************************/
-		std::cout<<"Waiting for client..."<<std::endl;
-		while(!HL.accept_client() && running);
-		if(!running) continue;
-		std::cout<<" Connected !"<<std::endl;
-		lidar.stop_scan();
-		lidar.start_motor();
-		sleep(1);	//Let motor spin
-		lidar.start_express_scan();
-		int result;
-		do{
-			//Update current scan (one turn of measurements)
-			lidar.process_express_scans(current_scan, DEBUG);
-			// Data processing: obstacle extraction and Kalman(?)
-
-			//TODO
-
-			//Send the data to client, TODO send obstacle data(not full scan)
-			result=HL.send_scan(current_scan);
-			//	std::cout<<result<<std::endl;
-		}while(result>=0 && running);
-		lidar.stop_scan();
-		lidar.stop_motor(); //Stop motor if already running
+		lidar.update();
+		lidar.print_scan();
 	}
 	/* ***********************************
 	 *                       STOP ALL                    *
 	 *************************************/
-	lidar.stop_scan();
-	lidar.stop_motor();
+	lidar.stop();
 	return 0;
 }
