@@ -5,13 +5,14 @@
 #ifndef RPLIDAR_A2_RETURNDATAWRAPPERS_HPP
 #define RPLIDAR_A2_RETURNDATAWRAPPERS_HPP
 
-#include <cmath>
+#include <math.h>
 #include <cstdint>
 #include <cstdio>
+#include <array>
 #include <vector>
 #include <algorithm>
+#include <iostream>
 #include "../../lidar/include/LidarEnums.hpp"
-#include "../../lidar/include/Measurement.h"
 
 namespace data_wrappers {
 	struct SampleRateData {
@@ -119,8 +120,11 @@ namespace data_wrappers {
 		std::vector<uint16_t> distances;        //measurement distance for each value in the packet
 		std::vector<float> d_angles;            //delta angle for each value in the packet
 		float start_angle=0;                                //Start angle of the packet
-		uint8_t current_measurement=0;
 
+		ExpressScanPacket(){
+			distances.reserve(32);
+			d_angles.reserve(32);
+		}
 		uint8_t scan_data_checksum(const std::vector<uint8_t>& scan_data){
 			uint8_t checksum=0;
 			for(unsigned long i=2;i<scan_data.size(); i++){
@@ -134,8 +138,7 @@ namespace data_wrappers {
 			if(result!=rp_values::ComResult::STATUS_OK){
 				return result;
 			}
-			distances.clear();
-			d_angles.clear();
+			reset();
 			start_angle = (((raw_bytes[3] & 0x7F) << 8) | (raw_bytes[2])) / static_cast<float>(64);
 
 			for(uint8_t i=4;i<80;i+=5){
@@ -166,34 +169,61 @@ namespace data_wrappers {
 				return rp_values::ComResult::STATUS_OK;
 			}
 		}
+
+		void reset(){
+			d_angles.clear();
+			distances.clear();
+			start_angle=0;
+		}
 	};
 
+	struct DataPoint{
+		uint16_t distance=0;
+		float angle=0;
+		DataPoint(){
+			angle=0;
+			distance=0;
+		}
+		DataPoint(uint16_t d, float a){
+			angle=a;
+			distance=d;
+		}
+		bool operator<(const DataPoint& other){
+			return angle<other.angle;
+		}
+	};
+
+	template<int NBR_DATA>
 	struct FullScan{
-		std::vector<Measurement> measurements;
+		std::array<DataPoint, NBR_DATA> measurements;
 		ExpressScanPacket	current_packet; 	//Current express packet data
 		ExpressScanPacket next_packet;		//Next express packet data(formula in com. protocol datasheet requires two consecutive scans, cf p23)
+		uint16_t current_id=0;
 		uint8_t measurement_id=32;						//To go through the 32 measurements in each express packet
 
-		void add_measurement(Measurement measurement){
-			measurements.push_back(measurement);
+		void add_measurement(DataPoint measurement){
+			measurements[current_id++]=measurement;
+			if(current_id==NBR_DATA){
+				current_id=0;
+			}
 		}
 
 		void clear(){
-			measurements.clear();
+			measurements.fill({0,0});
 		}
 
 		ssize_t size(){
 			return measurements.size();
 		}
 
-		Measurement& operator[](uint16_t index){
+		DataPoint& operator[](uint16_t index){
 			return measurements[index];
 		}
 
-		std::vector<Measurement>::iterator begin(){
+		typename std::array<DataPoint,NBR_DATA>::iterator begin(){
 			return measurements.begin();
 		}
-		std::vector<Measurement>::iterator end(){
+		typename std::array<DataPoint, NBR_DATA>::iterator end(){
 			return measurements.end();
 		}
 
@@ -204,8 +234,9 @@ namespace data_wrappers {
 		 * @param measurement_id : id of the measurement needed
 		 * @return Measurement struct (includes distance and angle of the measurement)
 		 */
-		Measurement get_next_measurement(const data_wrappers::ExpressScanPacket& scan_packet, float next_angle, uint8_t measurement_id) {
-			uint16_t distance=scan_packet.distances[measurement_id-1];
+		DataPoint get_next_measurement(const data_wrappers::ExpressScanPacket& scan_packet, float next_angle, uint8_t measurement_id) {
+			uint16_t distance=scan_packet.distances[measurement_id];
+
 			float angle_diff=(next_angle>=scan_packet.start_angle)?(next_angle-scan_packet.start_angle):(360+next_angle-scan_packet.start_angle);
 			float angle=fmodf(scan_packet.start_angle+(angle_diff/32.0f)*measurement_id-scan_packet.d_angles[measurement_id-1], 360.0f);
 			return {distance, angle};
@@ -214,7 +245,7 @@ namespace data_wrappers {
 		//Returns true if there is a new turn
 		bool compute_measurements(){
 			for(measurement_id=0;measurement_id<32;measurement_id++){
-				Measurement m=get_next_measurement(current_packet, next_packet.start_angle, measurement_id);
+				DataPoint m=get_next_measurement(current_packet, next_packet.start_angle, measurement_id);
 				add_measurement(m);
 			}
 			return false;
