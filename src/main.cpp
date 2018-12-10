@@ -3,9 +3,7 @@
 #include <iostream>
 #include <iomanip>
 #include <csignal>
-#include "lidar/include/RPLidar.hpp"
-
-#define DEBUG true
+#include "LidarWrapper/RPLidar.hpp"
 
 using namespace data_wrappers;
 using namespace std;
@@ -25,13 +23,15 @@ int main(int argc, char** argv){
 	running=true;
 
 	RPLidar lidar(argc>1?argv[argc - 1]:"/dev/ttyUSB0"); //Connects to lidar
-	lidar.print_status();
-	/* ************************************
-	 *                         START 			              *
-	 **************************************/
+	lidar.print_status(); // Print model, health, sampling rates
 	lidar.start();
-	while(running){
-		//Update current scan (one turn of measurements)
+	/* ************************************
+ 	*                   TEST MAIN LOOP             *
+ 	**************************************/
+	while(running) {
+		/* ************************************
+		 *                   START SCAN                    *
+		 **************************************/
 		lidar.update();
 		lidar.print_scan();
 	}

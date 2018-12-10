@@ -1,7 +1,6 @@
 #include <iostream>
 #include <iomanip>
 #include <unistd.h>
-#include "../../lidar_wrapper/include/ReturnDataWrappers.hpp"
 #include "../include/RPLidar.hpp"
 
 using namespace rp_values;
@@ -19,7 +18,9 @@ double msecs()
 }
 
 RPLidar::RPLidar(const char *serial_path) : port(serial_path, B115200, 0){
-//	stop_scan();
+	current_scan=data_wrappers::FullScan<NBR_DATA>();
+	stop_scan();
+	stop_motor();
 }
 
 void RPLidar::print_status(){
@@ -177,13 +178,15 @@ ComResult RPLidar::set_pwm(uint16_t pwm) {
  * then the data should be read
  * @return result of the communication
  */
-ComResult RPLidar::start_express_scan() {
+bool RPLidar::start() {
+	start_motor();
+	sleep(2);
 	send_packet(EXPRESS_SCAN, {0,0,0,0,0});
 	uint32_t data_size = port.read_descriptor();
 //	while(true){
 //		printf("0x%02X\n", port.read_byte());
 //	}
-	return data_size==DATA_SIZE_EXPRESS_SCAN?ComResult::STATUS_OK:ComResult::STATUS_ERROR;
+	return data_size==DATA_SIZE_EXPRESS_SCAN;
 }
 
 
@@ -234,19 +237,18 @@ rp_values::ComResult RPLidar::stop_scan() {
 	return result;
 }
 
-int8_t RPLidar::check_new_turn(float next_angle, data_wrappers::FullScan &current_scan) {
+int8_t RPLidar::check_new_turn(float next_angle, data_wrappers::FullScan<NBR_DATA> &current_scan) {
 	return ((next_angle<5) && (current_scan[current_scan.size()-1].angle>355)?1:-1); // Petite marge
 }
 
 /**
  * Main Loop for processing express scan data
  */
-bool RPLidar::process_express_scans(FullScan &current_scan, bool debug) {
+bool RPLidar::process_express_scans() {
 	bool error_handling = true;
 	current_scan.clear();                                        //Reinitialize scan
 	bool wrong_flag = false;                                    //For resynchronization when wrong flags
 	std::vector<uint8_t> read_buffer;                    //input buffer
-	double start_time = msecs();
 	for(int i=0;i<10;i++) {
 		if (current_scan.measurement_id == 32) {    //If we need to restart a new express packet decoding
 			current_scan.measurement_id = 0;
@@ -257,10 +259,16 @@ bool RPLidar::process_express_scans(FullScan &current_scan, bool debug) {
 					//Error handling
 					if (result == rp_values::ComResult::STATUS_WRONG_FLAG) {
 						printf("WRONG FLAGS, WILL SYNC BACK\n");
+						current_scan.next_packet.reset();
+						current_scan.measurement_id=32;
+						i=0;//Restart full scan
 						wrong_flag = true;
 						continue; //Couldn't decode an Express packet (wrong flags or checksum)
 					} else if (result != rp_values::ComResult::STATUS_OK) {
 						printf("WRONG CHECKSUM OR COM ERROR, IGNORE PACKET\n");
+						current_scan.next_packet.reset();
+						current_scan.measurement_id=32;
+						i=0;//Restart full scan
 						continue;
 					}
 				}
@@ -272,10 +280,16 @@ bool RPLidar::process_express_scans(FullScan &current_scan, bool debug) {
 				//Error handling
 				if (result == rp_values::ComResult::STATUS_WRONG_FLAG) {
 					printf("WRONG FLAGS, WILL SYNC BACK\n");
+					current_scan.next_packet.reset();
+					current_scan.measurement_id=32;
+					i=0;//Restart full scan
 					wrong_flag = true;
 					continue; //Couldn't decode an Express packet (wrong flags or checksum)
 				} else if (result != rp_values::ComResult::STATUS_OK) {
 					printf("WRONG CHECKSUM OR COM ERROR, IGNORE PACKET\n");
+					current_scan.next_packet.reset();
+					current_scan.measurement_id=32;
+					i=0;//Restart full scan
 					continue;
 				}
 				wrong_flag = false;
@@ -283,19 +297,31 @@ bool RPLidar::process_express_scans(FullScan &current_scan, bool debug) {
 		}
 		current_scan.compute_measurements();
 	}
-//	std::sort(current_scan.measurements.begin(), current_scan.measurements.end(),
-//			  [](const Measurement &a, const Measurement &b) { return a.angle < b.angle; });
-	if(!debug) {
-		double duration = msecs() - start_time;
-		std::cout << "Delta_t =" << duration << "ms" << std::endl;
-	}
 	return true;
 }
 
-void RPLidar::print_scan(data_wrappers::FullScan scan) {
-	std::cout<<"SCAN: "<<scan.size()<<" values. Content: ";
-	for(Measurement& m:scan){
+void RPLidar::print_scan() {
+	std::cout<<"SCAN: "<<current_scan.size()<<" values. Content: ";
+	for(data_wrappers::DataPoint m:current_scan){
 		std::cout<<"[Angle= "<<m.angle<<" Dist= "<<m.distance<<"mm] ";
 	}
 	std::cout<<std::endl;
+}
+
+bool RPLidar::connect(const std::string &ip, int port) {
+	(void)ip;
+	(void)port;
+	return true;
+}
+
+void RPLidar::update() {
+	process_express_scans();
+}
+
+
+
+bool RPLidar::stop() {
+	auto res=stop_scan();
+	stop_motor();
+	return res==STATUS_OK;
 }
