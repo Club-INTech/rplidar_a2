@@ -1,20 +1,20 @@
 #ifndef RPLIDAR_A2_LIDAR_HPP
 #define RPLIDAR_A2_LIDAR_HPP
 
-#include "include/SerialCommunication.hpp"
-#include "lidar_wrapper/ReturnDataWrappers.hpp"
+#include "SerialCommunication.hpp"
+#include "data_wrappers/ReturnDataWrappers.hpp"
+#include "data_wrappers/FullScan.hpp"
 #include <sys/time.h>
 #include <array>
 
 
-class RPLidar : public Lidar {
+class RPLidar {
 
 	SerialCommunication port;
-	constexpr static uint16_t NBR_DATA=320;
 
-	data_wrappers::FullScan<NBR_DATA> current_scan;
+	FullScan current_scan;
 
-	int8_t check_new_turn(float next_angle, data_wrappers::FullScan<NBR_DATA> &current_scan);
+	int8_t check_new_turn(float next_angle, FullScan &current_scan);
 	bool process_express_scans();
 	rp_values::ComResult set_pwm(uint16_t pwm);
 	rp_values::ComResult send_packet(rp_values::OrderByte order, const std::vector<uint8_t> &payload={});
@@ -29,16 +29,15 @@ public:
 	rp_values::ComResult stop_scan();
 	void print_status();
 	void print_scan();
+	bool stop();
 
 	//Interface for fusion_lidars:
-	RPLidar(const char* serial_path);
-	bool connect(const std::string& ip, int port); //For compatibility...
-	bool start();
-	void update();
-	const std::array<data_wrappers::DataPoint,NBR_DATA>& getDataPoints() {
-		return current_scan.measurements;
-	}
-	bool stop();
+	RPLidar()= default;
+	void init(const char* serial_path);
+	bool start() ;
+	void update() ;
+	const std::vector<std::pair<float, uint16_t>>* getDataPoints() const;
+	void close() ;
 };
 
 #endif //RPLIDAR_A2_LIDAR_HPP

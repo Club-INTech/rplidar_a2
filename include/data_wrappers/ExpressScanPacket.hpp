@@ -8,7 +8,7 @@
 #include <vector>
 #include <cstdint>
 
-class ExpressScanPacket {
+struct ExpressScanPacket {
 	std::vector<uint16_t> distances;        //measurement distance for each value in the packet
 	std::vector<float> d_angles;            //delta angle for each value in the packet
 	float start_angle=0;                                //Start angle of the packet

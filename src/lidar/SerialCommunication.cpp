@@ -12,16 +12,16 @@
 
 using namespace rp_values;
 
-SerialCommunication::SerialCommunication(const char *filePath, speed_t baudrate, int parity) {
+void SerialCommunication::init(const char *filePath, speed_t baudrate, int parity) {
 	serial_fd=open(filePath, O_RDWR);		//Get a file descriptor to the serial device, usually /dev/ttyUSB0
 	if(serial_fd==-1){
 		printf("Error: Serial device not found at %s\n", filePath);
 		exit(EXIT_FAILURE);
 	}
 	path=std::string(filePath);
-	set_interface_attribs(baudrate, parity); 				//sets up file attributes with termios for serial communication (8N1)
-	set_blocking(true, 5);												//Blocking communication, with timeout
-	setDTR(false);														//DTR disables PWM control of the motor, so it should be disabled
+	set_interface_attribs(baudrate, parity); 	//sets up file attributes with termios for serial communication (8N1)
+	set_blocking(true, 5);						//Blocking communication, with timeout
+	setDTR(false);								//DTR disables PWM control of the motor, so it should be disabled
 	memset(data, 0, rp_values::REQUEST_SIZE);	//Initialize output data buffer to 0
 }
 
