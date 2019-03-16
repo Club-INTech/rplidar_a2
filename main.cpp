@@ -1,14 +1,5 @@
-#include <unistd.h>
-#include <cmath>
-#include <iostream>
-#include <iomanip>
 #include <csignal>
-#include "lidar/include/RPLidar.hpp"
-
-#define DEBUG true
-
-using namespace data_wrappers;
-using namespace std;
+#include "lidar/RPLidar.hpp"
 
 bool running=true; //Variable to manage stops when signals are received
 void signal_handler(int signo){
