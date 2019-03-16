@@ -16,8 +16,17 @@ struct FullScan{
 	uint16_t current_id=0;
 	uint8_t measurement_id=32;						//To go through the 32 measurements in each express packet
 
+	FullScan()=default;
+
+	FullScan(uint16_t start_size){
+	    measurements.reserve(start_size);
+        for(int i = 0; i < start_size;i++){
+            measurements.emplace_back(std::pair<float, uint16_t>(0,0));
+        }
+    }
 	void add_measurement(std::pair<float, uint16_t> measurement){
-		measurements[current_id++]=measurement;
+		measurements[current_id].first=measurement.first;
+		measurements[current_id++].second=measurement.second;
 		if(current_id==320){
 			current_id=0;
 		}

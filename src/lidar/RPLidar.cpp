@@ -21,9 +21,10 @@ double msecs()
 
 void RPLidar::init(const char *serial_path){
     port.init(serial_path, B115200, 0);
-	current_scan=FullScan();
+	current_scan=FullScan(320);
 	stop_scan();
 	stop_motor();
+	printf("%d\n", current_scan.measurements.size());
 }
 
 void RPLidar::print_status(){
@@ -305,7 +306,7 @@ bool RPLidar::process_express_scans() {
 
 void RPLidar::print_scan() {
 	std::cout<<"SCAN: "<<current_scan.size()<<" values. Content: ";
-	for(std::pair<float, uint16_t> m:current_scan){
+	for(std::pair<float, uint16_t>& m:current_scan){
 		std::cout<<"[Angle= "<<m.first<<" Dist= "<<m.second<<"mm] ";
 	}
 	std::cout<<std::endl;

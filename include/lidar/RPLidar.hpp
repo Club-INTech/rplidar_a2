@@ -11,7 +11,6 @@
 class RPLidar {
 
 	SerialCommunication port;
-
 	FullScan current_scan;
 
 	int8_t check_new_turn(float next_angle, FullScan &current_scan);

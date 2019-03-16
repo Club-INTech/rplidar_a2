@@ -15,7 +15,8 @@ int main(int argc, char** argv){
 	signal(SIGINT, signal_handler);
 	running=true;
 
-	RPLidar lidar(argc>1?argv[argc - 1]:"/dev/ttyUSB0"); //Connects to lidar
+	RPLidar lidar; //Connects to lidar
+	lidar.init(argc>1?argv[argc - 1]:"/dev/ttyUSB0");
 	lidar.print_status();
 	/* ************************************
 	 *                         START 			              *
