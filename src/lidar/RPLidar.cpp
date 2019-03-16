@@ -1,7 +1,7 @@
 #include <iostream>
 #include <iomanip>
 #include <unistd.h>
-#include "../include/RPLidar.hpp"
+#include "lidar/RPLidar.hpp"
 
 using namespace rp_values;
 using namespace data_wrappers;

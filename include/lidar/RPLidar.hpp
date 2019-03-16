@@ -1,9 +1,8 @@
 #ifndef RPLIDAR_A2_LIDAR_HPP
 #define RPLIDAR_A2_LIDAR_HPP
 
-#include "../../basic_com/include/SerialCommunication.hpp"
-#include "../../lidar_wrapper/include/ReturnDataWrappers.hpp"
-#include "../../../Lidar.hpp"
+#include "include/SerialCommunication.hpp"
+#include "lidar_wrapper/ReturnDataWrappers.hpp"
 #include <sys/time.h>
 #include <array>
 

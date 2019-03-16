@@ -6,9 +6,9 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
-#include "../include/SerialCommunication.hpp"
+#include "lidar/SerialCommunication.hpp"
 
-#include "../include/SerialCommunication.hpp"
+#include "lidar/SerialCommunication.hpp"
 
 using namespace rp_values;
 

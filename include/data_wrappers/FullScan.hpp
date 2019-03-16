@@ -6,6 +6,8 @@
 #define RPLIDAR_A2_FULLSCAN_HPP
 
 #include <array>
+#include "data_wrappers/ReturnDataWrappers.hpp"
+#include "data_wrappers/ExpressScanPacket.hpp"
 
 template<int NBR_DATA>
 class FullScan{
@@ -33,7 +35,7 @@ class FullScan{
 	 * @param measurement_id : id of the measurement needed
 	 * @return Measurement struct (includes distance and angle of the measurement)
 	 */
-	DataPoint get_next_measurement(const data_wrappers::ExpressScanPacket& scan_packet, float next_angle, uint8_t measurement_id) ;
+	DataPoint get_next_measurement(const ExpressScanPacket& scan_packet, float next_angle, uint8_t measurement_id) ;
 
 	//Returns true if there is a new turn
 	bool compute_measurements();

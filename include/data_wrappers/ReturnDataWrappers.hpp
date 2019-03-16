@@ -12,7 +12,7 @@
 #include <vector>
 #include <algorithm>
 #include <iostream>
-#include "../../lidar/include/LidarEnums.hpp"
+#include "lidar/LidarEnums.hpp"
 
 
 //Extracts sample rate data from packet
@@ -91,17 +91,6 @@ struct InfoData {
 struct DataPoint{
 	uint16_t distance=0;
 	float angle=0;
-	DataPoint(){
-		angle=0;
-		distance=0;
-	}
-	DataPoint(uint16_t d, float a){
-		angle=a;
-		distance=d;
-	}
-	bool operator<(const DataPoint& other){
-		return angle<other.angle;
-	}
 };
 
 #endif //RPLIDAR_A2_RETURNDATAWRAPPERS_HPP

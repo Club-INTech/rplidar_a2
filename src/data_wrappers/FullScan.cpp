@@ -11,15 +11,15 @@ void FullScan::add_measurement(DataPoint measurement){
 	}
 }
 
-void clear(){
+void FullScan::clear(){
 	measurements.fill({0,0});
 }
 
-ssize_t size(){
+ssize_t FullScan::size(){
 	return measurements.size();
 }
 
-DataPoint& operator[](uint16_t index){
+DataPoint& FullScan::operator[](uint16_t index){
 	return measurements[index];
 }
 

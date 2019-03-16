@@ -7,7 +7,7 @@
 
 #include <string>
 #include <termios.h>
-#include "RequestPacket.hpp"
+#include "data_wrappers/RequestPacket.hpp"
 
 class SerialCommunication {
 	int serial_fd;
