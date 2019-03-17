@@ -14,7 +14,6 @@ int main(int argc, char** argv){
 	signal(SIGTERM, signal_handler);
 	signal(SIGINT, signal_handler);
 	running=true;
-
 	RPLidar lidar; //Connects to lidar
 	lidar.init(argc>1?argv[argc - 1]:"/dev/ttyUSB0");
 	lidar.print_status();
@@ -26,6 +25,7 @@ int main(int argc, char** argv){
 		//Update current scan (one turn of measurements)
 		lidar.update();
 		lidar.print_scan();
+		lidar.print_deltas();
 	}
 	/* ***********************************
 	 *                       STOP ALL                    *

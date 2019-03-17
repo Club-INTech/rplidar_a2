@@ -28,6 +28,7 @@ public:
 	rp_values::ComResult stop_scan();
 	void print_status();
 	void print_scan();
+	void print_deltas();
 	bool stop();
 
 	//Interface for fusion_lidars:

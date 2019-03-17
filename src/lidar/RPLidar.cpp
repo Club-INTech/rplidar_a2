@@ -21,10 +21,8 @@ double msecs()
 
 void RPLidar::init(const char *serial_path){
     port.init(serial_path, B115200, 0);
-	current_scan=FullScan(320);
 	stop_scan();
 	stop_motor();
-	printf("%d\n", current_scan.measurements.size());
 }
 
 void RPLidar::print_status(){
@@ -60,6 +58,7 @@ void RPLidar::print_status(){
 	if(healthData.status==rp_values::LidarStatus::LIDAR_ERROR){
 		cout<<"ERROR: LiDAR in critical state"<<endl;
 	}
+	cout<<"Number of returned samples per update: "<<FullScan::CFG_NB_PACKET_PER_TURN*FullScan::CFG_NB_SAMPLE_PER_PACKET<<endl;
 }
 
 
@@ -253,7 +252,7 @@ bool RPLidar::process_express_scans() {
 	current_scan.clear();                                        //Reinitialize scan
 	bool wrong_flag = false;                                    //For resynchronization when wrong flags
 	std::vector<uint8_t> read_buffer;                    //input buffer
-	for(int i=0;i<10;i++) {
+	for(int i=0;i<11;i++) {
 		if (current_scan.measurement_id == 32) {    //If we need to restart a new express packet decoding
 			current_scan.measurement_id = 0;
 			if (current_scan.next_packet.distances.empty()) {    //If there is no next packet (begginning, we only have one packet)
@@ -301,17 +300,33 @@ bool RPLidar::process_express_scans() {
 		}
 		current_scan.compute_measurements();
 	}
-	return true;
+    std::sort(current_scan.begin(), current_scan.end(), [](std::pair<float, uint16_t>& a, std::pair<float, uint16_t>& b){return a.first<b.first;});
+    return true;
 }
 
 void RPLidar::print_scan() {
-	std::cout<<"SCAN: "<<current_scan.size()<<" values. Content: ";
-	for(std::pair<float, uint16_t>& m:current_scan){
-		std::cout<<"[Angle= "<<m.first<<" Dist= "<<m.second<<"mm] ";
+	std::cout<<"SCAN: "<<current_scan.size()<<" values. Content: [angle;dist]";
+	std::cout<<std::setprecision(2)<<std::fixed;
+	for(auto& m:current_scan){
+        std::cout<<"["<<std::setfill(' ')<<std::setw(6)<<m.first<<";"<<std::setw(4)<<m.second<<"] ";
 	}
 	std::cout<<std::endl;
 }
 
+void RPLidar::print_deltas() {
+    std::cout<<"Delta_angles: ";
+    double delta=0;
+    uint16_t a=0;
+    for(uint16_t i = 0; i < current_scan.size()-1;i++){
+        a++;
+        double current=current_scan[i+1].first-current_scan[i].first;
+        delta+=current;
+        std::cout<<std::setprecision(3)<<"[d_a:"<<current<<"] ";
+    }
+    std::cout<<std::endl;
+    std::cout<<a<<"Last_AVG:"<<delta/a;
+    std::cout<<std::endl;
+}
 
 void RPLidar::update() {
 	process_express_scans();
@@ -332,3 +347,5 @@ void RPLidar::close() {
 const std::vector<std::pair<float, uint16_t>>*RPLidar::getDataPoints() const {
 	return &current_scan.measurements;
 }
+
+

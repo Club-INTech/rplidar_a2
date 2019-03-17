@@ -10,24 +10,26 @@
 #include "data_wrappers/ExpressScanPacket.hpp"
 
 struct FullScan{
+
+	constexpr static uint8_t CFG_NB_PACKET_PER_TURN=11;
+	constexpr static uint8_t CFG_NB_SAMPLE_PER_PACKET=32;
+
 	std::vector<std::pair<float, uint16_t>> measurements;
 	ExpressScanPacket	current_packet; 	//Current express packet data
 	ExpressScanPacket next_packet;		//Next express packet data(formula in com. protocol datasheet requires two consecutive scans, cf p23)
 	uint16_t current_id=0;
-	uint8_t measurement_id=32;						//To go through the 32 measurements in each express packet
+	uint8_t measurement_id=CFG_NB_SAMPLE_PER_PACKET;						//To go through the 32 measurements in each express packet
 
-	FullScan()=default;
-
-	FullScan(uint16_t start_size){
-	    measurements.reserve(start_size);
-        for(int i = 0; i < start_size;i++){
+	FullScan(){
+	    measurements.reserve(CFG_NB_PACKET_PER_TURN*CFG_NB_SAMPLE_PER_PACKET);
+        for(uint16_t i = 0; i < measurements.capacity();i++){
             measurements.emplace_back(std::pair<float, uint16_t>(0,0));
         }
     }
 	void add_measurement(std::pair<float, uint16_t> measurement){
 		measurements[current_id].first=measurement.first;
 		measurements[current_id++].second=measurement.second;
-		if(current_id==320){
+		if(current_id==CFG_NB_SAMPLE_PER_PACKET*CFG_NB_PACKET_PER_TURN){
 			current_id=0;
 		}
 	}
@@ -61,6 +63,7 @@ struct FullScan{
 	std::pair<float, uint16_t> get_next_measurement(const ExpressScanPacket& scan_packet, float next_angle, uint8_t measurement_id){
 		uint16_t distance=scan_packet.distances[measurement_id];
 
+		//Formulas for angle from slamtec protocol manual
 		float angle_diff=(next_angle>=scan_packet.start_angle)?(next_angle-scan_packet.start_angle):(360+next_angle-scan_packet.start_angle);
 		float angle=fmodf(scan_packet.start_angle+(angle_diff/32.0f)*measurement_id-scan_packet.d_angles[measurement_id-1], 360.0f);
 
@@ -69,7 +72,7 @@ struct FullScan{
 
 	//Returns true if there is a new turn
 	bool compute_measurements(){
-		for(measurement_id=0;measurement_id<32;measurement_id++){
+		for(measurement_id=0;measurement_id<CFG_NB_SAMPLE_PER_PACKET;measurement_id++){
 			std::pair<float, uint16_t> m=get_next_measurement(current_packet, next_packet.start_angle, measurement_id);
 			add_measurement(m);
 		}
