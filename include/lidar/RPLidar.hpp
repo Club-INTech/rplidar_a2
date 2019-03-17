@@ -39,7 +39,7 @@ public:
 	bool start() ;
 	void update() ;
 	const std::vector<std::pair<float, uint16_t>>* getDataPoints() const;
-	int close() ;
+	bool close() ;
 };
 
 #endif //RPLIDAR_A2_LIDAR_HPP

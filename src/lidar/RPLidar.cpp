@@ -343,8 +343,8 @@ bool RPLidar::stop() {
 	return res_scan&&res_motor;
 }
 
-int RPLidar::close() {
-	return port.close_port();
+bool RPLidar::close() {
+	return port.close_port()==0;
 }
 
 const std::vector<std::pair<float, uint16_t>>*RPLidar::getDataPoints() const {

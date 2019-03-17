@@ -12,7 +12,7 @@ namespace rp_values{
 	static constexpr uint8_t START_FLAG_2=0x5A;
 
 	//Number of tries for PWM spam (required as we have no feedback)
-	static constexpr uint8_t NUMBER_PWM_TRIES=20;
+	static constexpr uint8_t NUMBER_PWM_TRIES=10;
 
 	//Motor PWM is between 0 and 1023, this is the default speed
 	static constexpr uint16_t DEFAULT_MOTOR_PWM=660;
