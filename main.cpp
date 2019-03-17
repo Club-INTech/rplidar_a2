@@ -9,18 +9,20 @@ void signal_handler(int signo){
 
 int main(int argc, char** argv){
 	/* ************************************
-	*    SETUP LIDAR & CHECK STATUS  *
-	**************************************/
+	 *      SETUP LIDAR & CHECK STATUS    *
+	 **************************************/
 	signal(SIGTERM, signal_handler);
 	signal(SIGINT, signal_handler);
-	running=true;
 	RPLidar lidar; //Connects to lidar
-	lidar.init(argc>1?argv[argc - 1]:"/dev/ttyUSB0");
-	lidar.print_status();
+	running = lidar.init(argc>1?argv[argc - 1]:"/dev/ttyUSB0");
 	/* ************************************
-	 *                         START 			              *
+	 *               START 			      *
 	 **************************************/
-	lidar.start();
+	if(running) {
+		lidar.print_status();
+		running = lidar.start();
+	}
+
 	while(running){
 		//Update current scan (one turn of measurements)
 		lidar.update();
@@ -28,8 +30,7 @@ int main(int argc, char** argv){
 		lidar.print_deltas();
 	}
 	/* ***********************************
-	 *                       STOP ALL                    *
+	 *              STOP ALL             *
 	 *************************************/
-	lidar.stop();
 	return 0;
 }

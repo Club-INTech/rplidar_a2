@@ -6,23 +6,39 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+#include <lidar/SerialCommunication.hpp>
+
 #include "lidar/SerialCommunication.hpp"
 
 #include "lidar/SerialCommunication.hpp"
 
 using namespace rp_values;
 
-void SerialCommunication::init(const char *filePath, speed_t baudrate, int parity) {
+bool SerialCommunication::init_port(const char *filePath, speed_t baudrate, int parity) {
 	serial_fd=open(filePath, O_RDWR);		//Get a file descriptor to the serial device, usually /dev/ttyUSB0
 	if(serial_fd==-1){
 		printf("Error: Serial device not found at %s\n", filePath);
-		exit(EXIT_FAILURE);
+		is_open=false;
 	}
-	path=std::string(filePath);
-	set_interface_attribs(baudrate, parity); 	//sets up file attributes with termios for serial communication (8N1)
-	set_blocking(true, 5);						//Blocking communication, with timeout
-	setDTR(false);								//DTR disables PWM control of the motor, so it should be disabled
-	memset(data, 0, rp_values::REQUEST_SIZE);	//Initialize output data buffer to 0
+	else {
+        is_open = true;
+        path = std::string(filePath);
+        set_interface_attribs(baudrate,
+                              parity);    //sets up file attributes with termios for serial communication (8N1)
+        set_blocking(true, 5);                        //Blocking communication, with timeout
+        setDTR(false);                                //DTR disables PWM control of the motor, so it should be disabled
+        memset(data, 0, rp_values::REQUEST_SIZE);    //Initialize output data buffer to 0
+    }
+	return is_open;
+}
+
+int SerialCommunication::close_port() {
+	int result = 0;
+	if(is_open) {
+		result = close(serial_fd);
+		is_open = result!=0;
+	}
+	return result;
 }
 
 
@@ -168,7 +184,7 @@ ComResult SerialCommunication::send_packet(const RequestPacket &packet) {
 	ssize_t written=write(serial_fd, data, size);	//Tries to write those bytes to serial buffer on serial_fd, and get the amount of bytes written
 	if(written==-1){
 		printf("Error: No Connection to LiDAR on device %s\nQuitting\n", path.c_str());
-		exit(EXIT_FAILURE);
+		return STATUS_ERROR;
 	}
 	if(written<size){
 		perror("Error: serial write incomplete:\n");
@@ -246,4 +262,8 @@ void SerialCommunication::flush() {
 		res=read(serial_fd, buff, 1);
 		set_blocking(true, 5);
 	}
+}
+
+SerialCommunication::~SerialCommunication() {
+	close_port();
 }

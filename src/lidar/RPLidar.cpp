@@ -8,21 +8,14 @@
 using namespace rp_values;
 using namespace data_wrappers;
 
-/**
- * Gives the current epoch, in milliseconds
- * @return guess what
- */
-double msecs()
-{
-	struct timeval tv;
-	gettimeofday(&tv, 0);
-	return (double) tv.tv_usec / 1000 + tv.tv_sec * 1000;
-}
-
-void RPLidar::init(const char *serial_path){
-    port.init(serial_path, B115200, 0);
-	stop_scan();
-	stop_motor();
+bool RPLidar::init(const char *serial_path){
+    if(port.init_port(serial_path, B115200, 0)){
+        stop_scan();
+        stop_motor();
+        return true;
+    }else{
+	    return false;
+	}
 }
 
 void RPLidar::print_status(){
@@ -73,17 +66,17 @@ ComResult RPLidar::send_packet(OrderByte order, const std::vector<uint8_t> &payl
 	for(uint8_t data : payload){
 		requestPacket.add_payload(data);
 	}
-	uint8_t timeout=0;
+	uint8_t timeout=5;
 	ComResult result;
 	do{
 		result=port.send_packet(requestPacket);
-		if(timeout>0){
-			printf("Error: packet send incomplete, try %d/5\n", ++timeout);
+		if(result == STATUS_ERROR && timeout>0){
+			printf("Error: packet send incomplete, try %d/5\n", 5-(--timeout));
 		}
-	}while(result==STATUS_ERROR && timeout<5);
-	if(timeout>=5){
-		printf("Error: could not send packet for order %d", order);
-		exit(STATUS_ERROR);
+	}while(result==STATUS_ERROR && timeout>0);
+	if(timeout==0){
+		printf("Error: could not send packet for order 0x%X\n\n", order);
+		return STATUS_ERROR;
 	}
 	return STATUS_OK;
 }
@@ -140,10 +133,12 @@ ComResult RPLidar::get_samplerate(SampleRateData *sample_rate) {
  * @return result of the communication
  */
 ComResult RPLidar::start_motor() {
+	ComResult res=STATUS_OK;
 	for(int i=0;i<NUMBER_PWM_TRIES-1;i++) {
-		set_pwm(DEFAULT_MOTOR_PWM);
+		res=set_pwm(DEFAULT_MOTOR_PWM);
 	}
-	return STATUS_OK;
+	motor_on=res==STATUS_OK;
+	return res;
 }
 
 
@@ -153,11 +148,16 @@ ComResult RPLidar::start_motor() {
  * @return result of the communication
  */
 ComResult RPLidar::stop_motor() {
-	ComResult status=STATUS_OK;
-	for(int i=0;i<NUMBER_PWM_TRIES;i++) {
-		status=set_pwm(0)==STATUS_OK?STATUS_OK:STATUS_ERROR;
+	if(motor_on) {
+		ComResult status = STATUS_OK;
+		for (int i = 0; i < NUMBER_PWM_TRIES; i++) {
+			status = set_pwm(0) == STATUS_OK ? STATUS_OK : STATUS_ERROR;
+		}
+		return status;
 	}
-	return status;
+	else{
+		return STATUS_OK;
+	}
 }
 
 
@@ -179,17 +179,15 @@ ComResult RPLidar::set_pwm(uint16_t pwm) {
  * Requests the start of an express scan.
  * A response descriptor should then be read for data packets length,
  * then the data should be read
- * @return result of the communication
+ * @return result of the process
  */
 bool RPLidar::start() {
 	start_motor();
 	sleep(2);
 	send_packet(EXPRESS_SCAN, {0,0,0,0,0});
 	uint32_t data_size = port.read_descriptor();
-//	while(true){
-//		printf("0x%02X\n", port.read_byte());
-//	}
-	return data_size==DATA_SIZE_EXPRESS_SCAN;
+	scan_on=data_size==DATA_SIZE_EXPRESS_SCAN;
+	return motor_on && scan_on;
 }
 
 
@@ -234,10 +232,15 @@ rp_values::ComResult RPLidar::read_scan_data(std::vector<uint8_t> &output_data, 
  * @return result of the communication
  */
 rp_values::ComResult RPLidar::stop_scan() {
-	auto result=send_packet(STOP);
-	usleep(100000);
-	port.flush();
-	return result;
+	if(scan_on) {
+		auto result = send_packet(STOP);
+		usleep(100000);
+		port.flush();
+		return result;
+	}
+	else{
+		return STATUS_OK;
+	}
 }
 
 int8_t RPLidar::check_new_turn(float next_angle, FullScan &current_scan) {
@@ -335,17 +338,22 @@ void RPLidar::update() {
 
 
 bool RPLidar::stop() {
-	auto res=stop_scan();
-	stop_motor();
-	return res==STATUS_OK;
+	auto res_scan=stop_scan();
+	auto res_motor=stop_motor();
+	return res_scan&&res_motor;
 }
 
-void RPLidar::close() {
-	stop();
+int RPLidar::close() {
+	return port.close_port();
 }
 
 const std::vector<std::pair<float, uint16_t>>*RPLidar::getDataPoints() const {
 	return &current_scan.measurements;
+}
+
+RPLidar::~RPLidar() {
+	stop();
+	close();
 }
 
 
